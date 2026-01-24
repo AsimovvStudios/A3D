@@ -1,16 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 #include "a3d.h"
+#include "a3d_gfx.h"
+#define A3D_LOG_TAG "VK"
 #include "a3d_logging.h"
 #include "a3d_mesh.h"
 #include "a3d_renderer.h"
 #include "a3d_transform.h"
 #include "vulkan/a3d_vulkan.h"
+#include "vulkan/a3d_vulkan_buffer.h"
 #include "vulkan/a3d_vulkan_pipeline.h"
 
 #if A3D_VK_VALIDATION
@@ -25,6 +29,7 @@ static VkExtent2D choose_extent(const VkSurfaceCapabilitiesKHR* caps, SDL_Window
 static VkSurfaceFormatKHR choose_surface_format( const VkSurfaceFormatKHR* fmts, Uint32 fmts_count);
 static VkPresentModeKHR choose_present_mode(const VkPresentModeKHR* modes, Uint32 modes_count);
 static Uint32 find_memory_type(a3d* e, Uint32 type_filter, VkMemoryPropertyFlags properties);
+static void a3d_vk_draw_mesh(a3d* engine, const a3d_mesh* mesh, VkCommandBuffer* cmd);
 
 /* public */
 bool a3d_vk_allocate_command_buffers(a3d* e)
@@ -1156,7 +1161,7 @@ bool a3d_vk_record_command_buffer(a3d* e, Uint32 i, VkClearValue clear)
 		vkCmdPushConstants(*cmd, e->vk.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4), mvp_mat);
 
 		if (mesh && mvp)
-			a3d_draw_mesh(e, mesh, cmd);
+			a3d_vk_draw_mesh(e, mesh, cmd);
 	}
 
 	vkCmdEndRenderPass(e->vk.cmd_buffs[i]);
@@ -1359,3 +1364,139 @@ static Uint32 find_memory_type(a3d* e, Uint32 type_filter, VkMemoryPropertyFlags
 	A3D_LOG_ERROR("failed to find suitable memory type");
 	return UINT32_MAX;
 }
+
+static void a3d_vk_draw_mesh(a3d* engine, const a3d_mesh* mesh, VkCommandBuffer* cmd)
+{
+	(void)engine;
+	VkBuffer vbuff = (VkBuffer)mesh->gpu.vk.vertex_buffer_buff;
+	VkBuffer ibuff = (VkBuffer)mesh->gpu.vk.index_buffer_buff;
+	VkDeviceSize offsets[] = {0};
+	vkCmdBindVertexBuffers(*cmd, 0, 1, &vbuff, offsets);
+	vkCmdBindIndexBuffer(*cmd, ibuff, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdDrawIndexed(*cmd, mesh->index_count, 1, 0, 0, 0);
+}
+
+static bool a3d_vk_vtbl_init(a3d* e)
+{
+	return a3d_vk_init(e);
+}
+
+static void a3d_vk_vtbl_shutdown(a3d* e)
+{
+	a3d_vk_shutdown(e);
+}
+
+static bool a3d_vk_vtbl_draw_frame(a3d* e)
+{
+	return a3d_vk_draw_frame(e);
+}
+
+static bool a3d_vk_vtbl_recreate_or_resize(a3d* e)
+{
+	return a3d_vk_recreate_swapchain(e);
+}
+
+static void a3d_vk_vtbl_set_clear_colour(a3d* e, float r, float g, float b, float a)
+{
+	a3d_vk_set_clear_colour(e, r, g, b, a);
+}
+
+static void a3d_vk_vtbl_wait_idle(a3d* e)
+{
+	if (e->vk.logical)
+		vkDeviceWaitIdle(e->vk.logical);
+}
+
+static bool a3d_vk_vtbl_mesh_init_triangle(a3d* e, a3d_mesh* mesh)
+{
+	/* TODO */
+	A3D_LOG_INFO("creating triangle mesh (Vulkan)");
+
+	a3d_vertex vertices[] = {
+		{{ 0.0f,  0.5f}, {1.0f, 0.0f, 0.0f}},
+		{{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
+		{{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	};
+
+	Uint16 indices[] = {0, 1, 2};
+
+	mesh->vertex_count = 3;
+	mesh->index_count = 3;
+	mesh->topology = A3D_TOPO_TRIANGLES;
+
+	a3d_buffer vb;
+	bool r = a3d_vk_create_buffer(
+		e, sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&vb, vertices
+	);
+	if (!r)
+		return false;
+
+	mesh->gpu.vk.vertex_buffer_buff = (void*)vb.buff;
+	mesh->gpu.vk.vertex_buffer_mem = (void*)vb.mem;
+	mesh->gpu.vk.vertex_buffer_size = (Uint64)vb.size;
+
+	a3d_buffer ib;
+	r = a3d_vk_create_buffer(
+		e, sizeof(indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&ib, indices
+	);
+	if (!r) {
+		a3d_buffer cleanup_vb = {
+			.buff = (VkBuffer)mesh->gpu.vk.vertex_buffer_buff,
+			.mem = (VkDeviceMemory)mesh->gpu.vk.vertex_buffer_mem,
+			.size = (VkDeviceSize)mesh->gpu.vk.vertex_buffer_size
+		};
+		a3d_vk_destroy_buffer(e, &cleanup_vb);
+		return false;
+	}
+
+	mesh->gpu.vk.index_buffer_buff = (void*)ib.buff;
+	mesh->gpu.vk.index_buffer_mem = (void*)ib.mem;
+	mesh->gpu.vk.index_buffer_size = (Uint64)ib.size;
+
+	A3D_LOG_INFO("created triangle mesh (Vulkan)");
+	return true;
+}
+
+static void a3d_vk_vtbl_mesh_destroy(a3d* e, a3d_mesh* mesh)
+{
+	/* reconstruct a3d_buffer and destroy */
+	a3d_buffer vb = {
+		.buff = (VkBuffer)mesh->gpu.vk.vertex_buffer_buff,
+		.mem = (VkDeviceMemory)mesh->gpu.vk.vertex_buffer_mem,
+		.size = (VkDeviceSize)mesh->gpu.vk.vertex_buffer_size
+	};
+	a3d_vk_destroy_buffer(e, &vb);
+
+	a3d_buffer ib = {
+		.buff = (VkBuffer)mesh->gpu.vk.index_buffer_buff,
+		.mem = (VkDeviceMemory)mesh->gpu.vk.index_buffer_mem,
+		.size = (VkDeviceSize)mesh->gpu.vk.index_buffer_size
+	};
+	a3d_vk_destroy_buffer(e, &ib);
+
+	mesh->gpu.vk.vertex_buffer_buff = NULL;
+	mesh->gpu.vk.vertex_buffer_mem = NULL;
+	mesh->gpu.vk.vertex_buffer_size = 0;
+	mesh->gpu.vk.index_buffer_buff = NULL;
+	mesh->gpu.vk.index_buffer_mem = NULL;
+	mesh->gpu.vk.index_buffer_size = 0;
+	mesh->vertex_count = 0;
+	mesh->index_count = 0;
+
+	A3D_LOG_INFO("mesh destroyed (Vulkan)");
+}
+
+const a3d_gfx_vtbl a3d_vk_vtbl = {
+	.init = a3d_vk_vtbl_init,
+	.shutdown = a3d_vk_vtbl_shutdown,
+	.draw_frame = a3d_vk_vtbl_draw_frame,
+	.recreate_or_resize = a3d_vk_vtbl_recreate_or_resize,
+	.set_clear_colour = a3d_vk_vtbl_set_clear_colour,
+	.wait_idle = a3d_vk_vtbl_wait_idle,
+	.mesh_init_triangle = a3d_vk_vtbl_mesh_init_triangle,
+	.mesh_destroy = a3d_vk_vtbl_mesh_destroy
+};

@@ -1,7 +1,6 @@
-#include <stdio.h>
-
 #include <SDL3/SDL.h>
 
+#define A3D_LOG_TAG "CORE"
 #include "a3d_logging.h"
 #include "a3d_window.h"
 

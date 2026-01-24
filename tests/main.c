@@ -1,37 +1,84 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
-#define CGLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <cglm/mat4.h>
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
 
 #include "a3d.h"
 #include "a3d_event.h"
+#define A3D_LOG_TAG "CORE"
 #include "a3d_logging.h"
 #include "a3d_mesh.h"
 #include "a3d_renderer.h"
-#include "a3d_transform.h"
-#include "vulkan/a3d_vulkan.h"
 
-void on_key_down(a3d* engine, const SDL_Event* ev);
+#ifndef USE_OPENGL
+#define DEFAULT_BACKEND A3D_BACKEND_VULKAN
+#else
+#define DEFAULT_BACKEND A3D_BACKEND_OPENGL
+#endif
 
-void on_key_down(a3d* engine, const SDL_Event* ev)
+static void create_projection(mat4 proj, float fov_deg, float aspect, float near, float far, a3d_backend backend);
+static void on_key_down(a3d* engine, const SDL_Event* ev);
+
+static void on_key_down(a3d* engine, const SDL_Event* ev)
 {
 	(void)engine;
 	A3D_LOG_INFO("key pressed: %s", SDL_GetKeyName(ev->key.key));
 }
 
-int main(void)
+static void create_projection(mat4 proj, float fov_deg, float aspect, float near, float far, a3d_backend backend)
 {
+	glm_mat4_identity(proj);
+
+	if (backend == A3D_BACKEND_VULKAN) {
+		float fov = glm_rad(fov_deg);
+		float f = 1.0f / tanf(fov / 2.0f);
+
+		proj[0][0] = f / aspect;
+		proj[1][1] = f;
+		proj[2][2] = far / (near - far);
+		proj[2][3] = -1.0f;
+		proj[3][2] = (near * far) / (near - far);
+		proj[3][3] = 0.0f;
+
+		/* flip y */
+		proj[1][1] *= -1.0f;
+	}
+	else {
+		glm_perspective(glm_rad(fov_deg), aspect, near, far, proj);
+	}
+}
+
+int main(int argc, char** argv)
+{
+	a3d_backend backend = DEFAULT_BACKEND;
+
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--vulkan") == 0 || strcmp(argv[i], "-v") == 0) {
+			backend = A3D_BACKEND_VULKAN;
+		}
+		else if (strcmp(argv[i], "--opengl") == 0 || strcmp(argv[i], "-g") == 0) {
+			backend = A3D_BACKEND_OPENGL;
+		}
+		else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+			A3D_LOG_INFO("Usage: %s [--vulkan|-v] [--opengl|-g]", argv[0]);
+			A3D_LOG_INFO("\t--vulkan, -v  use Vulkan backend");
+			A3D_LOG_INFO("\t--opengl, -g  use OpenGL backend");
+			return EXIT_SUCCESS;
+		}
+	}
+
+	A3D_LOG_INFO("selected backend: %s", backend == A3D_BACKEND_VULKAN ? "Vulkan" : "OpenGL");
+
 	a3d engine;
-	if (!a3d_init(&engine, "test", 800, 600)) {
+	if (!a3d_init_backend(&engine, backend, "Asimotive3D Test", 800, 600)) {
 		A3D_LOG_ERROR("engine initialisation failed");
 		return EXIT_FAILURE;
 	}
 
-	a3d_add_event_handler(&engine, SDL_EVENT_KEY_DOWN, on_key_down);
+	a3d_event_add_handler(&engine, SDL_EVENT_KEY_DOWN, on_key_down);
 
 	/* create a test triangle mesh owned by the app */
 	a3d_mesh triangle;
@@ -51,12 +98,7 @@ int main(void)
 	glm_mat4_identity(mvp.view);
 	glm_mat4_identity(mvp.proj);
 
-	glm_perspective(glm_rad(70.0f),
-		(float)w/(float)h,
-		0.1f, 100.0f,
-		mvp.proj
-	);
-	mvp.proj[1][1] *= -1.0f;
+	create_projection(mvp.proj, 70.0f, (float)w/(float)h, 0.1f, 100.0f, backend);
 
 	float t = 0.0f;
 
@@ -81,7 +123,7 @@ int main(void)
 		/* animate clear colour */
 		t += 0.016f;
 		float r = 0.5f * sinf(t) + 0.5f;
-		a3d_vk_set_clear_colour(&engine, r, 0.0f, 0.4f, 1.0f);
+		a3d_set_clear_colour(&engine, r, 0.0f, 0.4f, 1.0f);
 
 		float x = sinf(t) * 2.0f;
 
@@ -108,7 +150,8 @@ int main(void)
 		a3d_frame(&engine);
 		SDL_Delay(16);
 	}
-	vkDeviceWaitIdle(engine.vk.logical);
+
+	a3d_wait_idle(&engine);
 
 	/* cleanup in one place */
 	a3d_destroy_mesh(&engine, &triangle);

@@ -1,26 +1,17 @@
-CC := clang
-CFLAGS := -std=c99 -Wall -Wextra $(shell pkg-config --cflags sdl3) -Iinclude -lcglm
-LDFLAGS := $(shell pkg-config --libs sdl3) -lvulkan -lm -lcglm
+CC ?= clang
+DBG ?= -DDEBUG
+API ?= --opengl
+CFLAGS = -std=c11 -Wall -Wextra $(DBG) $(shell pkg-config --cflags sdl3) -Iglad -Iinclude
+LDFLAGS = $(shell pkg-config --libs sdl3) -lvulkan -lGL -lm -lcglm
 
-SRC := $(wildcard src/*.c src/vulkan/*.c tests/*.c)
-BIN := build/asimotive3d_test
+SRC = src/*.c src/vulkan/*.c src/opengl/*.c glad/glad/*.c tests/*.c
+BIN = build/a3d_test
 
-# shaders
-GLSLANG := glslangValidator
-VSH_SRC := shaders/triangle.vert
-FSH_SRC := shaders/triangle.frag
-VSH_SPV := shaders/triangle.vert.spv
-FSH_SPV := shaders/triangle.frag.spv
-
-
-ifeq ($(DEBUG),1)
-	CFLAGS += -DDEBUG -g
-	BUILD_MODE := DEBUG
-else
-	# CFLAGS += -DNDEBUG -O2
-	CFLAGS += -DDEBUG -g
-	BUILD_MODE := RELEASE
-endif
+GLSLANG = glslangValidator
+VSH_SRC = shaders_vk/triangle.vert
+FSH_SRC = shaders_vk/triangle.frag
+VSH_SPV = shaders_vk/triangle.vert.spv
+FSH_SPV = shaders_vk/triangle.frag.spv
 
 all: $(BIN)
 
@@ -36,14 +27,15 @@ $(FSH_SPV): $(FSH_SRC)
 	$(GLSLANG) -V $< -o $@
 
 run: $(BIN)
-	./$(BIN)
+	./$(BIN) $(API)
 
 clean:
 	rm -rf build
+	rm -f shaders/*.spv shaders_vk/*.spv
 
 compile_flags:
 	@echo "generating compile_flags.txt"
 	@rm -f compile_flags.txt
 	@for flag in $(CFLAGS); do echo $$flag >> compile_flags.txt; done
 
-.PHONY: all debug run clean compile_flags
+.PHONY: all run clean compile_flags

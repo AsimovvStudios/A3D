@@ -6,18 +6,25 @@
 #include <string.h>
 
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
 
 #include "a3d.h"
 #include "a3d_event.h"
+#define A3D_LOG_TAG "CORE"
 #include "a3d_logging.h"
 #include "a3d_window.h"
 #include "a3d_renderer.h"
-#include "vulkan/a3d_vulkan.h"
 
-static void a3d_event_on_close_requested(a3d* e, const SDL_Event* ev);
-static void a3d_event_on_quit(a3d* e, const SDL_Event* ev);
-static void a3d_event_on_resize(a3d* e, const SDL_Event* ev);
+/* backends */
+#ifdef A3D_INCLUDE_VULKAN
+#include <SDL3/SDL_vulkan.h>
+#include "vulkan/a3d_vulkan.h"
+#endif
+#include "opengl/a3d_opengl.h"
+
+#ifdef A3D_INCLUDE_VULKAN
+extern const a3d_gfx_vtbl a3d_vk_vtbl;
+#endif
+extern const a3d_gfx_vtbl a3d_gl_vtbl;
 
 void a3d_frame(a3d* e)
 {
@@ -25,32 +32,67 @@ void a3d_frame(a3d* e)
 		return;
 
 	/* input */
-	a3d_pump_events(e);
+	a3d_event_pump(e);
 
 	if (!e->running)
 		return;
 
 	/* handle resize */
 	if (e->fb_resized) {
-		a3d_vk_recreate_swapchain(e);
+		if (e->gfx.v && e->gfx.v->recreate_or_resize)
+			e->gfx.v->recreate_or_resize(e);
 		e->fb_resized = false;
 	}
 
 	/* render */
-	a3d_vk_draw_frame(e);
+	if (e->gfx.v && e->gfx.v->draw_frame)
+		e->gfx.v->draw_frame(e);
 }
 
 bool a3d_init(a3d* e, const char* title, int width, int height)
 {
+	/* default to Vulkan backend */
+#ifdef A3D_INCLUDE_VULKAN
+	return a3d_init_backend(e, A3D_BACKEND_VULKAN, title, width, height);
+#else
+	return a3d_init_backend(e, A3D_BACKEND_OPENGL, title, width, height);
+#endif
+}
+
+bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width, int height)
+{
 	/* zero engine */
 	memset(e, 0, sizeof(*e));
+
+	e->backend = backend;
 
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		A3D_LOG_ERROR("failed to init SDL: %s", SDL_GetError());
 		return false;
 	}
 
-	e->window = a3d_create_window(title, width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+	/* choose window flags */
+	SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE;
+	switch (backend) {
+#ifdef A3D_INCLUDE_VULKAN
+	case A3D_BACKEND_VULKAN:
+		window_flags |= SDL_WINDOW_VULKAN;
+		e->gfx.v = &a3d_vk_vtbl;
+		A3D_LOG_INFO("using Vulkan backend");
+		break;
+#endif
+	case A3D_BACKEND_OPENGL:
+		window_flags |= SDL_WINDOW_OPENGL;
+		e->gfx.v = &a3d_gl_vtbl;
+		A3D_LOG_INFO("using OpenGL backend");
+		break;
+	default:
+		A3D_LOG_ERROR("unsupported backend: %d", backend);
+		SDL_Quit();
+		return false;
+	}
+
+	e->window = a3d_create_window(title, width, height, window_flags);
 	if (!e->window) {
 		A3D_LOG_ERROR("failed to create window");
 		SDL_Quit();
@@ -64,9 +106,9 @@ bool a3d_init(a3d* e, const char* title, int width, int height)
 		SDL_Delay(50);
 	}
 
-	/* init vulkan */
-	if (!a3d_vk_init(e)) {
-		A3D_LOG_ERROR("vulkan initialisation failed");
+	/* init graphics backend */
+	if (!e->gfx.v->init(e)) {
+		A3D_LOG_ERROR("graphics backend initialisation failed");
 		SDL_DestroyWindow(e->window);
 		SDL_Quit();
 		return false;
@@ -96,9 +138,9 @@ bool a3d_init(a3d* e, const char* title, int width, int height)
 	e->handlers_count = 0;
 
 	/* sane defaults */
-	a3d_add_event_handler(e, SDL_EVENT_QUIT, a3d_event_on_quit);
-	a3d_add_event_handler(e, SDL_EVENT_WINDOW_CLOSE_REQUESTED, a3d_event_on_close_requested);
-	a3d_add_event_handler(e, SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED, a3d_event_on_resize);
+	a3d_event_add_handler(e, SDL_EVENT_QUIT, a3d_event_on_quit);
+	a3d_event_add_handler(e, SDL_EVENT_WINDOW_CLOSE_REQUESTED, a3d_event_on_close_requested);
+	a3d_event_add_handler(e, SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED, a3d_event_on_resize);
 
 	return true;
 }
@@ -111,9 +153,17 @@ void a3d_quit(a3d *e)
 		e->renderer = NULL;
 	}
 
-	a3d_vk_shutdown(e);
+	if (e->gfx.v && e->gfx.v->shutdown)
+		e->gfx.v->shutdown(e);
+
 	SDL_DestroyWindow(e->window);
 	SDL_Quit();
+}
+
+void a3d_set_clear_colour(a3d* e, float r, float g, float b, float a)
+{
+	if (e && e->gfx.v && e->gfx.v->set_clear_colour)
+		e->gfx.v->set_clear_colour(e, r, g, b, a);
 }
 
 bool a3d_submit_mesh(a3d* e, const a3d_mesh* mesh, const a3d_mvp* mvp)
@@ -124,20 +174,9 @@ bool a3d_submit_mesh(a3d* e, const a3d_mesh* mesh, const a3d_mvp* mvp)
 	return a3d_renderer_draw_mesh(e->renderer, mesh, mvp);
 }
 
-static void a3d_event_on_quit(a3d* e, const SDL_Event* ev)
+void a3d_wait_idle(a3d* e)
 {
-	(void)ev;
-	e->running = false;
+	if (e && e->gfx.v && e->gfx.v->wait_idle)
+		e->gfx.v->wait_idle(e);
 }
 
-static void a3d_event_on_close_requested(a3d* e, const SDL_Event* ev)
-{
-	(void)ev;
-	e->running = false;
-}
-
-static void a3d_event_on_resize(a3d* e, const SDL_Event* ev)
-{
-	(void)ev;
-	e->fb_resized = true;
-}

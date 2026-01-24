@@ -3,7 +3,49 @@
 
 #include <SDL3/SDL.h>
 
-const char* a3d_sdl_event_to_str(SDL_EventType type)
+bool a3d_event_add_handler(a3d* e, Uint32 type, a3d_event_handler fn)
+{
+	if (e->handlers_count >= A3D_MAX_HANDLERS)
+		return false;
+	e->handlers[e->handlers_count].type = type;
+	e->handlers[e->handlers_count].fn = fn;
+	e->handlers_count++;
+	return true;
+}
+
+void a3d_event_handle(a3d* e, const SDL_Event* ev)
+{
+	for (Uint32 i = 0; i < e->handlers_count; i++) {
+		if (e->handlers[i].type == ev->type && e->handlers[i].fn)
+			e->handlers[i].fn(e, ev);
+	}
+}
+
+void a3d_event_on_close_requested(a3d* e, const SDL_Event* ev)
+{
+	(void)ev;
+	e->running = false;
+}
+
+void a3d_event_on_quit(a3d* e, const SDL_Event* ev)
+{
+	(void)ev;
+	e->running = false;
+}
+
+void a3d_event_on_resize(a3d* e, const SDL_Event* ev)
+{
+	(void)ev;
+	e->fb_resized = true;
+}
+
+void a3d_event_pump(a3d* e)
+{
+	while (SDL_PollEvent(&e->ev))
+		a3d_event_handle(e, &e->ev);
+}
+
+const char* a3d_event_sdl_to_str(SDL_EventType type)
 {
 	switch (type) {
 
@@ -149,28 +191,4 @@ const char* a3d_sdl_event_to_str(SDL_EventType type)
 
 	default: return "SDL_EVENT_UNKNOWN";
 	}
-}
-
-void a3d_handle_events(a3d* e, const SDL_Event* ev)
-{
-	for (Uint32 i = 0; i < e->handlers_count; i++) {
-		if (e->handlers[i].type == ev->type && e->handlers[i].fn)
-			e->handlers[i].fn(e, ev);
-	}
-}
-
-bool a3d_add_event_handler(a3d* e, Uint32 type, a3d_event_handler fn)
-{
-	if (e->handlers_count >= A3D_MAX_HANDLERS)
-		return false;
-	e->handlers[e->handlers_count].type = type;
-	e->handlers[e->handlers_count].fn = fn;
-	e->handlers_count++;
-	return true;
-}
-
-void a3d_pump_events(a3d* e)
-{
-	while (SDL_PollEvent(&e->ev))
-		a3d_handle_events(e, &e->ev);
 }

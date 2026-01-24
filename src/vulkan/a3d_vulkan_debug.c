@@ -1,6 +1,7 @@
 #include <vulkan/vulkan.h>
 
 #include "vulkan/a3d_vulkan_debug.h"
+#define A3D_LOG_TAG "VK"
 #include "a3d_logging.h"
 
 #if A3D_VK_VALIDATION
@@ -25,11 +26,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	(void)user_data;
 
 	if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-		A3D_LOG_ERROR("[VK] %s", message->pMessage);
+		A3D_LOG_ERROR("%s", message->pMessage);
 	else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-		A3D_LOG_WARN("[VK] %s", message->pMessage);
+		A3D_LOG_WARN("%s", message->pMessage);
 	else
-		A3D_LOG_DEBUG("[VK] %s", message->pMessage);
+		A3D_LOG_DEBUG("%s", message->pMessage);
 	return VK_FALSE;
 }
 

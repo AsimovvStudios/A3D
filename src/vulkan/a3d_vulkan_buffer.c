@@ -2,6 +2,7 @@
 #include <vulkan/vulkan.h>
 
 #include "a3d.h"
+#define A3D_LOG_TAG "VK"
 #include "a3d_logging.h"
 #include "vulkan/a3d_vulkan_buffer.h"
 

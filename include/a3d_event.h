@@ -4,7 +4,10 @@
 
 #include "a3d.h"
 
-const char* a3d_sdl_event_to_str(SDL_EventType type);
-void a3d_handle_events(a3d* e, const SDL_Event* ev);
-bool a3d_add_event_handler(a3d* e, Uint32 type, a3d_event_handler fn);
-void a3d_pump_events(a3d* e);
+bool a3d_event_add_handler(a3d* e, Uint32 type, a3d_event_handler fn);
+void a3d_event_pump(a3d* e);
+void a3d_event_on_close_requested(a3d* e, const SDL_Event* ev);
+void a3d_event_on_quit(a3d* e, const SDL_Event* ev);
+void a3d_event_on_resize(a3d* e, const SDL_Event* ev);
+void a3d_event_handle(a3d* e, const SDL_Event* ev);
+const char* a3d_event_sdl_to_str(SDL_EventType type);

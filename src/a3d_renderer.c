@@ -1,7 +1,9 @@
 #include <stdlib.h>
 
 #include "a3d_renderer.h"
+#define A3D_LOG_TAG "CORE"
 #include "a3d_logging.h"
+
 
 void a3d_renderer_begin_frame(a3d_renderer* r)
 {

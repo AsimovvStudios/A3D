@@ -4,13 +4,14 @@
 
 #include <vulkan/vulkan.h>
 
+#define A3D_LOG_TAG "VK"
 #include "a3d_logging.h"
 #include "a3d_mesh.h"
 #include "a3d_transform.h"
 #include "vulkan/a3d_vulkan_pipeline.h"
 
-#define A3D_SHADER_VERTEX_PATH "shaders/triangle.vert.spv"
-#define A3D_SHADER_FRAGMENT_PATH "shaders/triangle.frag.spv"
+#define A3D_SHADER_VERTEX_PATH "shaders_vk/triangle.vert.spv"
+#define A3D_SHADER_FRAGMENT_PATH "shaders_vk/triangle.frag.spv"
 
 static bool read_file_binary(const char* path, unsigned char** data, size_t* size);
 static VkShaderModule create_shader_module(a3d* e, const unsigned char* data, size_t size);

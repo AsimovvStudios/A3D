@@ -1,23 +1,44 @@
 #pragma once
 
-#include "a3d.h"
-#include "vulkan/a3d_vulkan_buffer.h"
+#include <SDL3/SDL_stdinc.h>
+
+typedef struct a3d a3d;
+
+typedef enum {
+	A3D_TOPO_TRIANGLES
+} a3d_topology;
 
 typedef struct a3d_vertex {
-	float    position[2];
-	float    colour[3];
+	float       position[2];
+	float       colour[3];
 } a3d_vertex;
 
 struct a3d_mesh {
-	a3d_buffer vertex_buffer;
-	Uint32   vertex_count;
+	Uint32      vertex_count;
+	Uint32      index_count;
+	a3d_topology topology;
 
-	a3d_buffer index_buffer;
-	Uint32   index_count;
+	union {
+		/* Vulkan handles */
+		struct {
+			void*       vertex_buffer_buff;
+			void*       vertex_buffer_mem;
+			Uint64      vertex_buffer_size;
+			void*       index_buffer_buff;
+			void*       index_buffer_mem;
+			Uint64      index_buffer_size;
+		} vk;
 
-	VkPrimitiveTopology topology;
+		/* OpenGL handles */
+		struct {
+			unsigned int vao;
+			unsigned int vbo;
+			unsigned int ebo;
+		} gl;
+	} gpu;
 };
 
+typedef struct a3d_mesh a3d_mesh;
+
 void a3d_destroy_mesh(a3d* e, a3d_mesh* mesh);
-void a3d_draw_mesh(a3d* e, const a3d_mesh* mesh, VkCommandBuffer* cmd);
 bool a3d_init_triangle(a3d* e, a3d_mesh* mesh);
