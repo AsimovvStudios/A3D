@@ -49,6 +49,36 @@ void a3d_frame(a3d* e)
 		e->gfx.v->draw_frame(e);
 }
 
+void a3d_frame_begin(a3d* e)
+{
+	if (!e) {
+		A3D_LOG_ERROR("a3d_frame_begin: engine is NULL");
+		return;
+	}
+
+	if (!e->renderer) {
+		A3D_LOG_ERROR("a3d_frame_begin: renderer is NULL");
+		return;
+	}
+
+	a3d_renderer_begin_frame(e->renderer);
+}
+
+void a3d_frame_end(a3d* e)
+{
+	if (!e) {
+		A3D_LOG_ERROR("a3d_frame_end: engine is NULL");
+		return;
+	}
+
+	if (!e->renderer) {
+		A3D_LOG_ERROR("a3d_frame_end: renderer is NULL");
+		return;
+	}
+
+	a3d_renderer_end_frame(e->renderer);
+}
+
 bool a3d_init(a3d* e, const char* title, int width, int height)
 {
 	/* default to Vulkan backend */
@@ -92,6 +122,14 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 		return false;
 	}
 
+	if (e->gfx.v && e->gfx.v->pre_window) {
+		if (!e->gfx.v->pre_window(e, &window_flags)) {
+			A3D_LOG_ERROR("backend pre-window setup failed");
+			SDL_Quit();
+			return false;
+		}
+	}
+
 	e->window = a3d_create_window(title, width, height, window_flags);
 	if (!e->window) {
 		A3D_LOG_ERROR("failed to create window");
@@ -118,7 +156,8 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 	e->renderer = malloc(sizeof *e->renderer);
 	if (!e->renderer) {
 		A3D_LOG_ERROR("failed to allocate renderer");
-		a3d_vk_shutdown(e);
+		if (e->gfx.v && e->gfx.v->shutdown)
+			e->gfx.v->shutdown(e);
 		SDL_DestroyWindow(e->window);
 		SDL_Quit();
 		return false;
@@ -128,7 +167,8 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 		A3D_LOG_ERROR("renderer initialisation failed");
 		free(e->renderer);
 		e->renderer = NULL;
-		a3d_vk_shutdown(e);
+		if (e->gfx.v && e->gfx.v->shutdown)
+			e->gfx.v->shutdown(e);
 		SDL_DestroyWindow(e->window);
 		SDL_Quit();
 		return false;
@@ -179,4 +219,3 @@ void a3d_wait_idle(a3d* e)
 	if (e && e->gfx.v && e->gfx.v->wait_idle)
 		e->gfx.v->wait_idle(e);
 }
-

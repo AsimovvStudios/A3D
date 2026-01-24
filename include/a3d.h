@@ -105,6 +105,8 @@ struct a3d {
 
 /* declarations */
 void a3d_frame(a3d* e);
+void a3d_frame_begin(a3d* e);
+void a3d_frame_end(a3d* e);
 bool a3d_init(a3d* e, const char* title, int w, int h);
 bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int w, int h);
 void a3d_quit(a3d* e);

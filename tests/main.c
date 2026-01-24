@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 		glm_translate(mvp.model, (vec3){x, pow(x, 3)-0.0f, -5.0f});
 
 		/* build render queue for this frame: two triangles at different Z to test depth */
-		a3d_renderer_begin_frame(engine.renderer);
+		a3d_frame_begin(&engine);
 
 		/* closer triangle (z = -4.2) */
 		a3d_mvp mvp_close = mvp;
@@ -145,7 +145,7 @@ int main(int argc, char** argv)
 		glm_rotate(mvp_far.model, t, (vec3){0.0f, 0.0f, 1.0f});
 		a3d_submit_mesh(&engine, &triangle, &mvp_far);
 
-		a3d_renderer_end_frame(engine.renderer);
+		a3d_frame_end(&engine);
 
 		a3d_frame(&engine);
 		SDL_Delay(16);

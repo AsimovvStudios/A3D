@@ -96,13 +96,6 @@ bool a3d_gl_init(a3d* e)
 {
 	A3D_LOG_INFO("initialising OpenGL backend");
 
-	/* set GL attributes before creating context */
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
 	/* create OpenGL context */
 	SDL_GLContext glctx = SDL_GL_CreateContext(e->window);
@@ -180,6 +173,32 @@ bool a3d_gl_init(a3d* e)
 	glViewport(0, 0, w, h);
 
 	A3D_LOG_INFO("OpenGL backend initialised");
+	return true;
+}
+
+bool a3d_gl_pre_window(a3d* e, SDL_WindowFlags* flags)
+{
+	(void)e;
+	if (!flags)
+		return false;
+
+	/* request OpenGL context; log if attributes can't be set */
+	bool r = 0;
+
+	if (!(r = SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3)))
+		A3D_LOG_WARN("SDL_GL_SetAttribute(MAJOR_VERSION) failed: %s", SDL_GetError());
+	if (!(r = SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)))
+		A3D_LOG_WARN("SDL_GL_SetAttribute(MINOR_VERSION) failed: %s", SDL_GetError());
+	if (!(r = SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)))
+		A3D_LOG_WARN("SDL_GL_SetAttribute(CONTEXT_PROFILE) failed: %s", SDL_GetError());
+	if (!(r = SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1)))
+		A3D_LOG_WARN("SDL_GL_SetAttribute(DOUBLEBUFFER) failed: %s", SDL_GetError());
+	if (!(r = SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24)))
+		A3D_LOG_WARN("SDL_GL_SetAttribute(DEPTH_SIZE) failed: %s", SDL_GetError());
+	if (!(r = SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8)))
+		A3D_LOG_WARN("SDL_GL_SetAttribute(STENCIL_SIZE) failed: %s", SDL_GetError());
+
+	*flags |= SDL_WINDOW_OPENGL;
 	return true;
 }
 
@@ -291,6 +310,7 @@ void a3d_gl_wait_idle(a3d* e)
 }
 
 const a3d_gfx_vtbl a3d_gl_vtbl = {
+    .pre_window = a3d_gl_pre_window,
 	.init = a3d_gl_init,
 	.shutdown = a3d_gl_shutdown,
 	.draw_frame = a3d_gl_draw_frame,

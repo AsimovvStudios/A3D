@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <SDL3/SDL.h>
 
 typedef struct a3d a3d;
 typedef struct a3d_mesh a3d_mesh;
@@ -11,6 +12,7 @@ typedef enum {
 } a3d_backend;
 
 typedef struct a3d_gfx_vtbl {
+	bool        (*pre_window)(a3d* e, SDL_WindowFlags* flags);
 	bool        (*init)(a3d* e);
 	void        (*shutdown)(a3d* e);
 	bool        (*draw_frame)(a3d* e);
