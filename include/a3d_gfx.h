@@ -5,6 +5,11 @@
 
 typedef struct a3d a3d;
 typedef struct a3d_mesh a3d_mesh;
+typedef struct a3d_vertex a3d_vertex;
+
+typedef enum {
+	A3D_TOPO_TRIANGLES
+} a3d_topology;
 
 typedef enum {
 	A3D_BACKEND_VULKAN,
@@ -20,12 +25,21 @@ typedef struct a3d_gfx_vtbl {
 	void        (*set_clear_colour)(a3d* e, float r, float g, float b, float a);
 	void        (*wait_idle)(a3d* e);
 	/* mesh stff */
+	bool        (*mesh_upload)(
+		a3d* e,
+		a3d_mesh* mesh,
+		const a3d_vertex* vertices,
+		Uint32 vertex_count,
+		const Uint16* indices,
+		Uint32 index_count,
+		a3d_topology topology
+	);
 	bool        (*mesh_init_triangle)(a3d* e, a3d_mesh* mesh);
 	void        (*mesh_destroy)(a3d* e, a3d_mesh* mesh);
 } a3d_gfx_vtbl;
 
 typedef struct a3d_gfx {
-	const a3d_gfx_vtbl* v;  /* vtable */
-	void*       ctx;        /* backend-specific context (TODO) */
+	const a3d_gfx_vtbl* v;
+	void*       ctx;
 } a3d_gfx;
 

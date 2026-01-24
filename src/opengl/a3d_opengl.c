@@ -176,6 +176,83 @@ bool a3d_gl_init(a3d* e)
 	return true;
 }
 
+bool a3d_gl_init_triangle(a3d* e, a3d_mesh* mesh)
+{
+	A3D_LOG_INFO("creating triangle mesh (OpenGL)");
+
+	a3d_vertex vertices[] = {
+		{{ 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+		{{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+	};
+
+	Uint16 indices[] = {0, 1, 2};
+
+	return a3d_mesh_upload(e, mesh, vertices, 3, indices, 3, A3D_TOPO_TRIANGLES);
+}
+
+bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
+	const a3d_vertex* vertices, Uint32 vertex_count,
+	const Uint16* indices, Uint32 index_count,
+	a3d_topology topology
+)
+{
+	if (!e || !vertices || vertex_count == 0 || !indices || index_count == 0) {
+		A3D_LOG_ERROR("a3d_gl_mesh_upload: invalid parameters");
+		return false;
+	}
+
+	/* metadata */
+	mesh->vertex_count = vertex_count;
+	mesh->index_count = index_count;
+	mesh->topology = topology;
+
+	/* create VAO */
+	glGenVertexArrays(1, &mesh->gpu.gl.vao);
+	glBindVertexArray(mesh->gpu.gl.vao);
+
+	/* create VBO */
+	glGenBuffers(1, &mesh->gpu.gl.vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->gpu.gl.vbo);
+	glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(sizeof(a3d_vertex) * vertex_count), vertices, GL_STATIC_DRAW);
+
+	/* create EBO */
+	glGenBuffers(1, &mesh->gpu.gl.ebo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpu.gl.ebo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(sizeof(Uint16) * index_count), indices, GL_STATIC_DRAW);
+
+	/* set up vertex attributes */
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(
+		0,
+		3,
+		GL_FLOAT,
+		GL_FALSE,
+		sizeof(a3d_vertex),
+		(void*)offsetof(a3d_vertex, position)
+	);
+
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(
+		1,
+		3,
+		GL_FLOAT,
+		GL_FALSE,
+		sizeof(a3d_vertex),
+		(void*)offsetof(a3d_vertex, colour)
+	);
+
+	/* unbind VAO */
+	glBindVertexArray(0);
+
+	A3D_LOG_INFO(
+		"uploaded mesh (OpenGL): verts=%u indices=%u vao=%u vbo=%u ebo=%u",
+		mesh->vertex_count, mesh->index_count, mesh->gpu.gl.vao, mesh->gpu.gl.vbo, mesh->gpu.gl.ebo
+	);
+
+	return true;
+}
+
 bool a3d_gl_pre_window(a3d* e, SDL_WindowFlags* flags)
 {
 	(void)e;
@@ -199,67 +276,6 @@ bool a3d_gl_pre_window(a3d* e, SDL_WindowFlags* flags)
 		A3D_LOG_WARN("SDL_GL_SetAttribute(STENCIL_SIZE) failed: %s", SDL_GetError());
 
 	*flags |= SDL_WINDOW_OPENGL;
-	return true;
-}
-
-bool a3d_gl_init_triangle(a3d* e, a3d_mesh* mesh)
-{
-	(void)e;
-	A3D_LOG_INFO("creating triangle mesh (OpenGL)");
-
-	/* TODO */
-	a3d_vertex vertices[] = {
-		{{ 0.0f,  0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-	};
-
-	Uint16 indices[] = {0, 1, 2};
-
-	mesh->vertex_count = 3;
-	mesh->index_count = 3;
-	mesh->topology = A3D_TOPO_TRIANGLES;
-
-	/* create VAO */
-	glGenVertexArrays(1, &mesh->gpu.gl.vao);
-	glBindVertexArray(mesh->gpu.gl.vao);
-
-	/* create VBO */
-	glGenBuffers(1, &mesh->gpu.gl.vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, mesh->gpu.gl.vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	/* create EBO */
-	glGenBuffers(1, &mesh->gpu.gl.ebo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpu.gl.ebo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	/* set up vertex attributes */
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(
-		0,
-		2,
-		GL_FLOAT,
-		GL_FALSE,
-		sizeof(a3d_vertex),
-		(void*)offsetof(a3d_vertex, position)
-	);
-
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(
-		1,
-		3,
-		GL_FLOAT,
-		GL_FALSE,
-		sizeof(a3d_vertex),
-		(void*)offsetof(a3d_vertex, colour)
-	);
-
-	/* unbind VAO */
-	glBindVertexArray(0);
-
-	A3D_LOG_INFO("created triangle mesh: vao=%u vbo=%u ebo=%u",
-		mesh->gpu.gl.vao, mesh->gpu.gl.vbo, mesh->gpu.gl.ebo);
 	return true;
 }
 
@@ -317,6 +333,7 @@ const a3d_gfx_vtbl a3d_gl_vtbl = {
 	.recreate_or_resize = a3d_gl_resize,
 	.set_clear_colour = a3d_gl_set_clear_colour,
 	.wait_idle = a3d_gl_wait_idle,
+	.mesh_upload = a3d_gl_mesh_upload,
 	.mesh_init_triangle = a3d_gl_init_triangle,
 	.mesh_destroy = a3d_gl_destroy_mesh
 };

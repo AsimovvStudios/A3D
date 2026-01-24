@@ -19,9 +19,9 @@ struct a3d_renderer {
 	bool     frame_active;
 };
 
-void a3d_renderer_begin_frame(a3d_renderer* r);
 bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp* mvp);
-void a3d_renderer_end_frame(a3d_renderer* r);
+void a3d_renderer_frame_begin(a3d_renderer* r);
+void a3d_renderer_frame_end(a3d_renderer* r);
 void a3d_renderer_get_draw_items(a3d_renderer* r, const a3d_draw_item** out_items, Uint32* out_count);
 bool a3d_renderer_init(a3d_renderer* r);
 void a3d_renderer_shutdown(a3d_renderer* r);

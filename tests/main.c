@@ -12,6 +12,7 @@
 #include "a3d_logging.h"
 #include "a3d_mesh.h"
 #include "a3d_renderer.h"
+#include "a3d_camera.h"
 
 #ifndef USE_OPENGL
 #define DEFAULT_BACKEND A3D_BACKEND_VULKAN
@@ -19,7 +20,6 @@
 #define DEFAULT_BACKEND A3D_BACKEND_OPENGL
 #endif
 
-static void create_projection(mat4 proj, float fov_deg, float aspect, float near, float far, a3d_backend backend);
 static void on_key_down(a3d* engine, const SDL_Event* ev);
 
 static void on_key_down(a3d* engine, const SDL_Event* ev)
@@ -28,32 +28,13 @@ static void on_key_down(a3d* engine, const SDL_Event* ev)
 	A3D_LOG_INFO("key pressed: %s", SDL_GetKeyName(ev->key.key));
 }
 
-static void create_projection(mat4 proj, float fov_deg, float aspect, float near, float far, a3d_backend backend)
-{
-	glm_mat4_identity(proj);
-
-	if (backend == A3D_BACKEND_VULKAN) {
-		float fov = glm_rad(fov_deg);
-		float f = 1.0f / tanf(fov / 2.0f);
-
-		proj[0][0] = f / aspect;
-		proj[1][1] = f;
-		proj[2][2] = far / (near - far);
-		proj[2][3] = -1.0f;
-		proj[3][2] = (near * far) / (near - far);
-		proj[3][3] = 0.0f;
-
-		/* flip y */
-		proj[1][1] *= -1.0f;
-	}
-	else {
-		glm_perspective(glm_rad(fov_deg), aspect, near, far, proj);
-	}
-}
 
 int main(int argc, char** argv)
 {
 	a3d_backend backend = DEFAULT_BACKEND;
+
+	int prev_w = 0;
+	int prev_h = 0;
 
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--vulkan") == 0 || strcmp(argv[i], "-v") == 0) {
@@ -80,25 +61,71 @@ int main(int argc, char** argv)
 
 	a3d_event_add_handler(&engine, SDL_EVENT_KEY_DOWN, on_key_down);
 
-	/* create a test triangle mesh owned by the app */
-	a3d_mesh triangle;
-	if (!a3d_init_triangle(&engine, &triangle)) {
-		A3D_LOG_ERROR("failed to create triangle mesh");
+	/* create a cube mesh */
+	a3d_mesh cube;
+
+	a3d_vertex cube_verts[] = {
+		/* +x face */
+		{{1, -1, -1}, {1,0,0}},
+		{{1, -1,  1}, {1,0,0}},
+		{{1,  1,  1}, {1,0,0}},
+		{{1,  1, -1}, {1,0,0}},
+		/* -x face */
+		{{-1, -1,  1}, {0,1,0}},
+		{{-1, -1, -1}, {0,1,0}},
+		{{-1,  1, -1}, {0,1,0}},
+		{{-1,  1,  1}, {0,1,0}},
+		/* +y face */
+		{{-1, 1, -1}, {0,0,1}},
+		{{1, 1, -1}, {0,0,1}},
+		{{1, 1,  1}, {0,0,1}},
+		{{-1, 1,  1}, {0,0,1}},
+		/* -y face */
+		{{-1, -1,  1}, {1,1,0}},
+		{{1, -1,  1}, {1,1,0}},
+		{{1, -1, -1}, {1,1,0}},
+		{{-1, -1, -1}, {1,1,0}},
+		/* +z face */
+		{{-1, -1, 1}, {1,0,1}},
+		{{-1,  1, 1}, {1,0,1}},
+		{{1,  1, 1}, {1,0,1}},
+		{{1, -1, 1}, {1,0,1}},
+		/* -z face */
+		{{1, -1, -1}, {0,1,1}},
+		{{1,  1, -1}, {0,1,1}},
+		{{-1,  1, -1}, {0,1,1}},
+		{{-1, -1, -1}, {0,1,1}},
+	};
+
+	Uint16 cube_idx[] = {
+		0,2,1,  0,3,2,
+		4,6,5,  4,7,6,
+		8,10,9,  8,11,10,
+		12,14,13, 12,15,14,
+		16,18,17, 16,19,18,
+		20,22,21, 20,23,22
+	};
+
+	if (!a3d_mesh_upload(&engine, &cube, cube_verts, 24, cube_idx, 36, A3D_TOPO_TRIANGLES)) {
+		A3D_LOG_ERROR("failed to upload cube mesh");
 		a3d_quit(&engine);
 		return EXIT_FAILURE;
 	}
 
-	/* camera */
+	/* camera and mvp */
+	a3d_camera cam;
+	a3d_camera_init(&cam);
+
 	a3d_mvp mvp;
 	int w;
 	int h;
 	SDL_GetWindowSize(engine.window, &w, &h);
-
 	glm_mat4_identity(mvp.model);
 	glm_mat4_identity(mvp.view);
 	glm_mat4_identity(mvp.proj);
 
-	create_projection(mvp.proj, 70.0f, (float)w/(float)h, 0.1f, 100.0f, backend);
+	a3d_camera_set_perspective(&cam, (float)w/(float)h, backend);
+	a3d_camera_rebuild_view(&cam);
 
 	float t = 0.0f;
 
@@ -120,41 +147,84 @@ int main(int argc, char** argv)
 		if (!engine.running)
 			break;
 
-		/* animate clear colour */
-		t += 0.016f;
+		t += a3d_dt(&engine);
 		float r = 0.5f * sinf(t) + 0.5f;
 		a3d_set_clear_colour(&engine, r, 0.0f, 0.4f, 1.0f);
 
-		float x = sinf(t) * 2.0f;
+		/* camera controls */
+		const bool* keys = SDL_GetKeyboardState(NULL);
+		float speed = 3.0f;
+		float move = speed * a3d_dt(&engine);
+		float forward = 0.0f;
+		float right = 0.0f;
+		float up = 0.0f;
 
+		if (keys[SDL_SCANCODE_W])
+			forward += move;
+		if (keys[SDL_SCANCODE_S])
+			forward -= move;
+		if (keys[SDL_SCANCODE_D])
+			right += move;
+		if (keys[SDL_SCANCODE_A])
+			right -= move;
+		if (keys[SDL_SCANCODE_E])
+			up += move;
+		if (keys[SDL_SCANCODE_Q])
+			up -= move;
+
+		a3d_camera_move_local(&cam, forward, right, up);
+
+		float look = 1.5f * a3d_dt(&engine);
+		if (keys[SDL_SCANCODE_LEFT])
+			cam.yaw -= look;
+		if (keys[SDL_SCANCODE_RIGHT])
+			cam.yaw += look;
+		if (keys[SDL_SCANCODE_UP])
+			cam.pitch += look;
+		if (keys[SDL_SCANCODE_DOWN])
+			cam.pitch -= look;
+		/* clamp pitch */
+		if (cam.pitch > 1.55f)
+			cam.pitch = 1.55f;
+		if (cam.pitch < -1.55f)
+			cam.pitch = -1.55f;
+
+		a3d_camera_rebuild_view(&cam);
+
+		/* model transform */
 		glm_mat4_identity(mvp.model);
-		glm_translate(mvp.model, (vec3){x, pow(x, 3)-0.0f, -5.0f});
+		glm_translate(mvp.model, (vec3){0.0f, 0.0f, 0.0f});
+		glm_rotate(mvp.model, t, (vec3){0.0f, 1.0f, 0.0f});
 
-		/* build render queue for this frame: two triangles at different Z to test depth */
+		/* set view/proj from camera */
+		glm_mat4_copy(cam.view, mvp.view);
+		glm_mat4_copy(cam.proj, mvp.proj);
+
+		/* submit cube */
 		a3d_frame_begin(&engine);
-
-		/* closer triangle (z = -4.2) */
-		a3d_mvp mvp_close = mvp;
-		glm_translate(mvp_close.model, (vec3){0.0f, 0.0f, 0.8f}); /* -5.0 + 0.8 = -4.2 */
-		glm_rotate(mvp_close.model, t, (vec3){0.0f, 0.0f, 1.0f});
-		a3d_submit_mesh(&engine, &triangle, &mvp_close);
-
-		/* farther triangle (z = -5.6) */
-		a3d_mvp mvp_far = mvp;
-		glm_translate(mvp_far.model, (vec3){0.0f, 0.0f, -0.6f}); /* -5.0 - 0.6 = -5.6 */
-		glm_rotate(mvp_far.model, t, (vec3){0.0f, 0.0f, 1.0f});
-		a3d_submit_mesh(&engine, &triangle, &mvp_far);
-
+		a3d_submit_mesh(&engine, &cube, &mvp);
 		a3d_frame_end(&engine);
 
 		a3d_frame(&engine);
-		SDL_Delay(16);
+
+		/* handle resize */
+		int nw;
+		int nh;
+		SDL_GetWindowSizeInPixels(engine.window, &nw, &nh);
+		if (nw != prev_w || nh != prev_h) {
+			prev_w = nw;
+			prev_h = nh;
+			float aspect = (nw && nh) ? (float)nw / (float)nh : 1.0f;
+			a3d_camera_set_perspective(&cam, aspect, backend);
+		}
+
+		SDL_Delay(1);
 	}
 
 	a3d_wait_idle(&engine);
 
 	/* cleanup in one place */
-	a3d_destroy_mesh(&engine, &triangle);
+	a3d_destroy_mesh(&engine, &cube);
 	a3d_quit(&engine);
 
 	return EXIT_SUCCESS;

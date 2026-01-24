@@ -101,9 +101,14 @@ struct a3d {
 	} gl;
 
 	a3d_renderer* renderer;
+
+	/* timing */
+	Uint64      last_ticks;
+	float       dt;
 };
 
 /* declarations */
+float a3d_dt(const a3d* e);
 void a3d_frame(a3d* e);
 void a3d_frame_begin(a3d* e);
 void a3d_frame_end(a3d* e);

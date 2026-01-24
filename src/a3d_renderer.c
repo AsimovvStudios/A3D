@@ -5,17 +5,6 @@
 #include "a3d_logging.h"
 
 
-void a3d_renderer_begin_frame(a3d_renderer* r)
-{
-	if (!r) {
-		A3D_LOG_ERROR("a3d_renderer_begin_frame called without renderer");
-		return;
-	}
-
-	r->count = 0;
-	r->frame_active = true;
-}
-
 bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp* mvp)
 {
 
@@ -44,10 +33,21 @@ bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp
 	return true;
 }
 
-void a3d_renderer_end_frame(a3d_renderer* r)
+void a3d_renderer_frame_begin(a3d_renderer* r)
 {
 	if (!r) {
-		A3D_LOG_ERROR("a3d_renderer_end_frame called without renderer");
+		A3D_LOG_ERROR("a3d_renderer_frame_begin called without renderer");
+		return;
+	}
+
+	r->count = 0;
+	r->frame_active = true;
+}
+
+void a3d_renderer_frame_end(a3d_renderer* r)
+{
+	if (!r) {
+		A3D_LOG_ERROR("a3d_renderer_frame_end called without renderer");
 		return;
 	}
 

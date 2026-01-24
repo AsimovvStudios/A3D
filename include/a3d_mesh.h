@@ -1,15 +1,11 @@
 #pragma once
 
 #include <SDL3/SDL_stdinc.h>
-
+#include "a3d_gfx.h"
 typedef struct a3d a3d;
 
-typedef enum {
-	A3D_TOPO_TRIANGLES
-} a3d_topology;
-
 typedef struct a3d_vertex {
-	float       position[2];
+	float       position[3];
 	float       colour[3];
 } a3d_vertex;
 
@@ -42,3 +38,8 @@ typedef struct a3d_mesh a3d_mesh;
 
 void a3d_destroy_mesh(a3d* e, a3d_mesh* mesh);
 bool a3d_init_triangle(a3d* e, a3d_mesh* mesh);
+bool a3d_mesh_upload(a3d* e, a3d_mesh* mesh,
+	const a3d_vertex* v, Uint32 vcount,
+	const Uint16* idx, Uint32 icount,
+	a3d_topology topo
+);

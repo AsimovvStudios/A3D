@@ -26,10 +26,32 @@ extern const a3d_gfx_vtbl a3d_vk_vtbl;
 #endif
 extern const a3d_gfx_vtbl a3d_gl_vtbl;
 
+float a3d_dt(const a3d* e)
+{
+    if (!e)
+		return 0.0f;
+    return e->dt;
+}
+
 void a3d_frame(a3d* e)
 {
 	if (!e)
 		return;
+
+	/* timing */
+	if (e->last_ticks) {
+		Uint64 now = SDL_GetTicksNS();
+		Uint64 delta = now - e->last_ticks;
+		/* ns->seconds */
+		e->dt = (float)delta / 1e9f;
+		/* clamping avoids jumps */
+		if (e->dt > 0.1f) e->dt = 0.1f;
+		e->last_ticks = now;
+	}
+	else {
+		e->dt = 0.0f;
+		e->last_ticks = SDL_GetTicksNS();
+	}
 
 	/* input */
 	a3d_event_pump(e);
@@ -61,7 +83,7 @@ void a3d_frame_begin(a3d* e)
 		return;
 	}
 
-	a3d_renderer_begin_frame(e->renderer);
+	a3d_renderer_frame_begin(e->renderer);
 }
 
 void a3d_frame_end(a3d* e)
@@ -76,7 +98,7 @@ void a3d_frame_end(a3d* e)
 		return;
 	}
 
-	a3d_renderer_end_frame(e->renderer);
+	a3d_renderer_frame_end(e->renderer);
 }
 
 bool a3d_init(a3d* e, const char* title, int width, int height)
@@ -176,6 +198,10 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 
 	e->running = true;
 	e->handlers_count = 0;
+
+	/* initialise timing state */
+	e->last_ticks = SDL_GetTicksNS();
+	e->dt = 0.0f;
 
 	/* sane defaults */
 	a3d_event_add_handler(e, SDL_EVENT_QUIT, a3d_event_on_quit);
