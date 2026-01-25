@@ -14,11 +14,6 @@
 #include "a3d_renderer.h"
 #include "a3d_camera.h"
 
-#ifndef USE_OPENGL
-#define DEFAULT_BACKEND A3D_BACKEND_VULKAN
-#else
-#define DEFAULT_BACKEND A3D_BACKEND_OPENGL
-#endif
 
 static void on_key_down(a3d* engine, const SDL_Event* ev);
 
@@ -31,25 +26,13 @@ static void on_key_down(a3d* engine, const SDL_Event* ev)
 
 int main(int argc, char** argv)
 {
-	a3d_backend backend = DEFAULT_BACKEND;
+	(void)argc;
+	(void)argv;
+
+	a3d_backend backend = A3D_BACKEND;
 
 	int prev_w = 0;
 	int prev_h = 0;
-
-	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "--vulkan") == 0 || strcmp(argv[i], "-v") == 0) {
-			backend = A3D_BACKEND_VULKAN;
-		}
-		else if (strcmp(argv[i], "--opengl") == 0 || strcmp(argv[i], "-g") == 0) {
-			backend = A3D_BACKEND_OPENGL;
-		}
-		else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-			A3D_LOG_INFO("Usage: %s [--vulkan|-v] [--opengl|-g]", argv[0]);
-			A3D_LOG_INFO("\t--vulkan, -v  use Vulkan backend");
-			A3D_LOG_INFO("\t--opengl, -g  use OpenGL backend");
-			return EXIT_SUCCESS;
-		}
-	}
 
 	A3D_LOG_INFO("selected backend: %s", backend == A3D_BACKEND_VULKAN ? "Vulkan" : "OpenGL");
 

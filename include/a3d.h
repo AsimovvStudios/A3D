@@ -6,10 +6,22 @@
 
 #include "a3d_gfx.h"
 
-#ifndef A3D_NO_VULKAN
+#if defined(BACKEND_VK) && defined(BACKEND_GL)
+#error "define only BACKEND_VK or BACKEND_GL"
+#endif
+#if !defined(BACKEND_VK) && !defined(BACKEND_GL)
+#error "define BACKEND_VK or BACKEND_GL"
+#endif
+
+#if defined(BACKEND_VK)
 #define A3D_INCLUDE_VULKAN
+#define A3D_BACKEND A3D_BACKEND_VULKAN
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan_core.h>
+#endif
+
+#if defined(BACKEND_GL)
+#define A3D_BACKEND A3D_BACKEND_OPENGL
 #endif
 
 #if !defined(A3D_VK_VALIDATION)
@@ -50,7 +62,7 @@ struct a3d {
 	a3d_gfx     gfx;
 
 	/* Vulkan backend */
-#ifdef A3D_INCLUDE_VULKAN
+#if defined(BACKEND_VK)
 	struct {
 		VkInstance  instance;
 		VkSurfaceKHR surface;
@@ -93,12 +105,14 @@ struct a3d {
 #endif
 
 	/* OpenGL backend */
+#if defined(BACKEND_GL)
 	struct {
 		void*       context;
 		unsigned int program;
 		int         u_mvp_location;
 		float       clear_colour[4];
 	} gl;
+#endif
 
 	a3d_renderer* renderer;
 

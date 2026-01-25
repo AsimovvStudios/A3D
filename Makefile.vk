@@ -1,21 +1,34 @@
 CC  ?= clang
 DBG ?= -DDEBUG
 
-CFLAGS  = -std=c11 -Wall -Wextra $(DBG) -Iglad -Iinclude
-CPPFLAGS= -DBACKEND_GL
-LDLIBS  = -lGL -lm -lcglm
+GLSLANG ?= glslangValidator
 
-SRC = src/*.c src/opengl/*.c glad/glad/*.c tests/*.c
+CFLAGS  = -std=c11 -Wall -Wextra $(DBG) -Iglad -Iinclude
+CPPFLAGS= -DBACKEND_VK
+LDLIBS  = -lvulkan -lm -lcglm
+
+SRC = src/*.c src/vulkan/*.c glad/glad/*.c tests/*.c
 BIN = build/a3d_test
+
+VSH_SRC = shaders_vk/triangle.vert
+FSH_SRC = shaders_vk/triangle.frag
+VSH_SPV = shaders_vk/triangle.vert.spv
+FSH_SPV = shaders_vk/triangle.frag.spv
 
 all: $(BIN)
 
-$(BIN):
+$(BIN): $(VSH_SPV) $(FSH_SPV)
 	mkdir -p build
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(SRC) -o $(BIN) `pkg-config --cflags --libs sdl3` $(LDLIBS)
 
+$(VSH_SPV): $(VSH_SRC)
+	$(GLSLANG) -V "$<" -o "$@"
+
+$(FSH_SPV): $(FSH_SRC)
+	$(GLSLANG) -V "$<" -o "$@"
+
 clean:
-	rm -rf build/ shaders_gl/*.spv
+	rm -f build/ shaders_vk/*.spv
 
 compile_flags:
 	@echo "generating compile_flags.txt"

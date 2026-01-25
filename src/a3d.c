@@ -15,16 +15,20 @@
 #include "a3d_renderer.h"
 
 /* backends */
-#ifdef A3D_INCLUDE_VULKAN
+#if defined(BACKEND_VK)
 #include <SDL3/SDL_vulkan.h>
 #include "vulkan/a3d_vulkan.h"
 #endif
+#if defined(BACKEND_GL)
 #include "opengl/a3d_opengl.h"
+#endif
 
-#ifdef A3D_INCLUDE_VULKAN
+#if defined(BACKEND_VK)
 extern const a3d_gfx_vtbl a3d_vk_vtbl;
 #endif
+#if defined(BACKEND_GL)
 extern const a3d_gfx_vtbl a3d_gl_vtbl;
+#endif
 
 float a3d_dt(const a3d* e)
 {
@@ -103,12 +107,7 @@ void a3d_frame_end(a3d* e)
 
 bool a3d_init(a3d* e, const char* title, int width, int height)
 {
-	/* default to Vulkan backend */
-#ifdef A3D_INCLUDE_VULKAN
-	return a3d_init_backend(e, A3D_BACKEND_VULKAN, title, width, height);
-#else
-	return a3d_init_backend(e, A3D_BACKEND_OPENGL, title, width, height);
-#endif
+	return a3d_init_backend(e, A3D_BACKEND, title, width, height);
 }
 
 bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width, int height)
@@ -126,18 +125,20 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 	/* choose window flags */
 	SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE;
 	switch (backend) {
-#ifdef A3D_INCLUDE_VULKAN
+#if defined(BACKEND_VK)
 	case A3D_BACKEND_VULKAN:
 		window_flags |= SDL_WINDOW_VULKAN;
 		e->gfx.v = &a3d_vk_vtbl;
 		A3D_LOG_INFO("using Vulkan backend");
 		break;
 #endif
+#if defined(BACKEND_GL)
 	case A3D_BACKEND_OPENGL:
 		window_flags |= SDL_WINDOW_OPENGL;
 		e->gfx.v = &a3d_gl_vtbl;
 		A3D_LOG_INFO("using OpenGL backend");
 		break;
+#endif
 	default:
 		A3D_LOG_ERROR("unsupported backend: %d", backend);
 		SDL_Quit();

@@ -10,13 +10,13 @@
 
 typedef struct a3d_draw_item {
 	const a3d_mesh* mesh;
-	a3d_mvp  mvp;
+	a3d_mvp     mvp;
 } a3d_draw_item;
 
 struct a3d_renderer {
 	a3d_draw_item items[A3D_RENDERER_MAX_DRAW_CALLS];
-	Uint32   count;
-	bool     frame_active;
+	Uint32      count;
+	bool        frame_active;
 };
 
 bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp* mvp);
