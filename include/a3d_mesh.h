@@ -6,7 +6,8 @@ typedef struct a3d a3d;
 
 typedef struct a3d_vertex {
 	float       position[3];
-	float       colour[3];
+	float       normal[3];
+	float       uv[2];
 } a3d_vertex;
 
 struct a3d_mesh {
@@ -40,6 +41,8 @@ void a3d_destroy_mesh(a3d* e, a3d_mesh* mesh);
 bool a3d_init_triangle(a3d* e, a3d_mesh* mesh);
 bool a3d_mesh_upload(a3d* e, a3d_mesh* mesh,
 	const a3d_vertex* v, Uint32 vcount,
-	const Uint16* idx, Uint32 icount,
+	const a3d_index* idx, Uint32 icount,
 	a3d_topology topo
 );
+bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path);
+

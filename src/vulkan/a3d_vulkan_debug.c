@@ -83,3 +83,4 @@ bool a3d_vk_debug_shutdown(a3d *e)
 	return true;
 }
 #endif
+

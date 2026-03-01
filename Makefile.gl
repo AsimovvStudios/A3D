@@ -1,11 +1,11 @@
 CC  ?= clang
 DBG ?= -DDEBUG
 
-CFLAGS  = -std=c11 -Wall -Wextra $(DBG) -Iglad -Iinclude
+CFLAGS  = -std=c11 -Wall -Wextra -g -O0 $(DBG) -Iexternal -Iinclude
 CPPFLAGS= -DBACKEND_GL
 LDLIBS  = -lGL -lm -lcglm
 
-SRC = src/*.c src/opengl/*.c glad/glad/*.c tests/*.c
+SRC = src/*.c src/opengl/*.c external/glad/gl.c tests/*.c
 BIN = build/a3d_test
 
 all: $(BIN)

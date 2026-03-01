@@ -113,3 +113,4 @@ static Uint32 find_memory_type(a3d* e, Uint32 type_filter, VkMemoryPropertyFlags
 	A3D_LOG_ERROR("failed to find suitable memory type");
 	return UINT32_MAX;
 }
+

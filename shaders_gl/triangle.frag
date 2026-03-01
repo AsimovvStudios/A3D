@@ -1,11 +1,14 @@
 #version 330 core
 
-in vec3 v_color;
+in vec2 v_uv;
 
 out vec4 out_colour;
 
+uniform sampler2D u_albedo;
+uniform vec4 u_tint;
+
 void main()
 {
-	out_colour = vec4(v_color, 1.0);
+	out_colour = texture(u_albedo, v_uv) * u_tint;
 }
 

@@ -32,7 +32,7 @@ static Uint32 find_memory_type(a3d* e, Uint32 type_filter, VkMemoryPropertyFlags
 static void a3d_vk_draw_mesh(a3d* engine, const a3d_mesh* mesh, VkCommandBuffer* cmd);
 static bool a3d_vk_mesh_upload(a3d* e, a3d_mesh* mesh,
 	const a3d_vertex* vertices, Uint32 vertex_count,
-	const Uint16* indices, Uint32 index_count,
+	const a3d_index* indices, Uint32 index_count,
 	a3d_topology topology
 );
 
@@ -1377,7 +1377,7 @@ static void a3d_vk_draw_mesh(a3d* engine, const a3d_mesh* mesh, VkCommandBuffer*
 	VkBuffer ibuff = (VkBuffer)mesh->gpu.vk.index_buffer_buff;
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(*cmd, 0, 1, &vbuff, offsets);
-	vkCmdBindIndexBuffer(*cmd, ibuff, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(*cmd, ibuff, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(*cmd, mesh->index_count, 1, 0, 0, 0);
 }
 
@@ -1412,24 +1412,50 @@ static void a3d_vk_vtbl_wait_idle(a3d* e)
 		vkDeviceWaitIdle(e->vk.logical);
 }
 
+static bool a3d_vk_vtbl_texture_load(a3d* e, a3d_texture* texture, const char* path, bool srgb)
+{
+	(void)e;
+	(void)path;
+	if (!texture)
+		return false;
+
+	memset(texture, 0, sizeof(*texture));
+	texture->width = 1;
+	texture->height = 1;
+	texture->channels = 4;
+	texture->srgb = srgb;
+	texture->is_fallback = true;
+	A3D_LOG_WARN("Vulkan texture upload is not implemented yet; using stub texture");
+	return true;
+}
+
+static void a3d_vk_vtbl_texture_destroy(a3d* e, a3d_texture* texture)
+{
+	(void)e;
+	if (!texture)
+		return;
+
+	memset(texture, 0, sizeof(*texture));
+}
+
 static bool a3d_vk_vtbl_mesh_init_triangle(a3d* e, a3d_mesh* mesh)
 {
 	A3D_LOG_INFO("creating triangle mesh (Vulkan)");
 
 	a3d_vertex vertices[] = {
-		{{ 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+		{{ 0.0f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.5f, 1.0f}},
+		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+		{{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
 	};
 
-	Uint16 indices[] = {0, 1, 2};
+	a3d_index indices[] = {0, 1, 2};
 
 	return a3d_vk_mesh_upload(e, mesh, vertices, 3, indices, 3, A3D_TOPO_TRIANGLES);
 }
 
 static bool a3d_vk_mesh_upload(a3d* e, a3d_mesh* mesh,
 	const a3d_vertex* vertices, Uint32 vertex_count,
-	const Uint16* indices, Uint32 index_count,
+	const a3d_index* indices, Uint32 index_count,
 	a3d_topology topology
 )
 {
@@ -1457,7 +1483,7 @@ static bool a3d_vk_mesh_upload(a3d* e, a3d_mesh* mesh,
 
 	a3d_buffer ib;
 	r = a3d_vk_create_buffer(
-		e, (VkDeviceSize)(sizeof(Uint16) * index_count), VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		e, (VkDeviceSize)(sizeof(a3d_index) * index_count), VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		&ib, indices
 	);
@@ -1515,7 +1541,10 @@ const a3d_gfx_vtbl a3d_vk_vtbl = {
 	.recreate_or_resize = a3d_vk_vtbl_recreate_or_resize,
 	.set_clear_colour = a3d_vk_vtbl_set_clear_colour,
 	.wait_idle = a3d_vk_vtbl_wait_idle,
+	.texture_load = a3d_vk_vtbl_texture_load,
+	.texture_destroy = a3d_vk_vtbl_texture_destroy,
 	.mesh_upload = a3d_vk_mesh_upload,
 	.mesh_init_triangle = a3d_vk_vtbl_mesh_init_triangle,
 	.mesh_destroy = a3d_vk_vtbl_mesh_destroy
 };
+

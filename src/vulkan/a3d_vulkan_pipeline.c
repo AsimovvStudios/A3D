@@ -80,7 +80,7 @@ bool a3d_vk_create_graphics_pipeline(a3d* e)
 		.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
 	};
 
-	VkVertexInputAttributeDescription attributes[2] = {
+	VkVertexInputAttributeDescription attributes[3] = {
 		{
 			.binding = 0,
 			.location = 0,
@@ -91,7 +91,13 @@ bool a3d_vk_create_graphics_pipeline(a3d* e)
 			.binding = 0,
 			.location = 1,
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
-			.offset = offsetof(a3d_vertex, colour)
+			.offset = offsetof(a3d_vertex, normal)
+		},
+		{
+			.binding = 0,
+			.location = 2,
+			.format = VK_FORMAT_R32G32_SFLOAT,
+			.offset = offsetof(a3d_vertex, uv)
 		}
 	};
 
@@ -99,7 +105,7 @@ bool a3d_vk_create_graphics_pipeline(a3d* e)
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 		.vertexBindingDescriptionCount = 1,
 		.pVertexBindingDescriptions = &binding,
-		.vertexAttributeDescriptionCount = 2,
+		.vertexAttributeDescriptionCount = 3,
 		.pVertexAttributeDescriptions = attributes,
 	};
 
@@ -312,3 +318,4 @@ static VkShaderModule create_shader_module(a3d* engine, const unsigned char* dat
 
 	return module;
 }
+

@@ -5,6 +5,8 @@
 #include <SDL3/SDL.h>
 
 #include "a3d_gfx.h"
+#include "a3d_material.h"
+#include "a3d_texture.h"
 
 #if defined(BACKEND_VK) && defined(BACKEND_GL)
 #error "define only BACKEND_VK or BACKEND_GL"
@@ -110,7 +112,11 @@ struct a3d {
 		void*       context;
 		unsigned int program;
 		int         u_mvp_location;
+		int         u_albedo_location;
+		int         u_tint_location;
 		float       clear_colour[4];
+		a3d_texture missing_texture;
+		a3d_material default_material;
 	} gl;
 #endif
 
@@ -131,4 +137,10 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int w, int
 void a3d_quit(a3d* e);
 void a3d_set_clear_colour(a3d* e, float r, float g, float b, float a);
 bool a3d_submit_mesh(a3d* e, const a3d_mesh* mesh, const a3d_mvp* mvp);
+bool a3d_submit_mesh_material(
+	a3d* e,
+	const a3d_mesh* mesh,
+	const a3d_mvp* mvp,
+	const a3d_material* material
+);
 void a3d_wait_idle(a3d* e);

@@ -235,10 +235,21 @@ void a3d_set_clear_colour(a3d* e, float r, float g, float b, float a)
 
 bool a3d_submit_mesh(a3d* e, const a3d_mesh* mesh, const a3d_mvp* mvp)
 {
+	/* TODO */
+	return a3d_submit_mesh_material(e, mesh, mvp, NULL);
+}
+
+bool a3d_submit_mesh_material(
+	a3d* e,
+	const a3d_mesh* mesh,
+	const a3d_mvp* mvp,
+	const a3d_material* material
+)
+{
 	if (!e || !e->renderer)
 		return false;
 
-	return a3d_renderer_draw_mesh(e->renderer, mesh, mvp);
+	return a3d_renderer_draw_mesh_material(e->renderer, mesh, mvp, material);
 }
 
 void a3d_wait_idle(a3d* e)
@@ -246,3 +257,4 @@ void a3d_wait_idle(a3d* e)
 	if (e && e->gfx.v && e->gfx.v->wait_idle)
 		e->gfx.v->wait_idle(e);
 }
+

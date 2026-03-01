@@ -28,7 +28,7 @@ $(FSH_SPV): $(FSH_SRC)
 	$(GLSLANG) -V "$<" -o "$@"
 
 clean:
-	rm -f build/ shaders_vk/*.spv
+	rm -rf build/ shaders_vk/*.spv
 
 compile_flags:
 	@echo "generating compile_flags.txt"

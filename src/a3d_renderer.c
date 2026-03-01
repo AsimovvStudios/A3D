@@ -1,11 +1,23 @@
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "a3d_renderer.h"
 #define A3D_LOG_TAG "CORE"
 #include "a3d_logging.h"
 
+static int a3d_renderer_compare_draw_items(const void* lhs_ptr, const void* rhs_ptr);
 
 bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp* mvp)
+{
+	return a3d_renderer_draw_mesh_material(r, mesh, mvp, NULL);
+}
+
+bool a3d_renderer_draw_mesh_material(
+	a3d_renderer* r,
+	const a3d_mesh* mesh,
+	const a3d_mvp* mvp,
+	const a3d_material* material
+)
 {
 
 	if (!r) {
@@ -27,6 +39,7 @@ bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp
 	}
 
 	r->items[r->count].mesh = mesh;
+	r->items[r->count].material = material;
 	r->items[r->count].mvp = *mvp;
 	r->count++;
 
@@ -50,6 +63,9 @@ void a3d_renderer_frame_end(a3d_renderer* r)
 		A3D_LOG_ERROR("a3d_renderer_frame_end called without renderer");
 		return;
 	}
+
+	if (r->count > 1)
+		qsort(r->items, r->count, sizeof(r->items[0]), a3d_renderer_compare_draw_items);
 
 	r->frame_active = false;
 }
@@ -89,3 +105,35 @@ void a3d_renderer_shutdown(a3d_renderer* r)
 
 	A3D_LOG_INFO("shutting down renderer");
 }
+
+static int a3d_renderer_compare_draw_items(const void* lhs_ptr, const void* rhs_ptr)
+{
+	const a3d_draw_item* lhs = lhs_ptr;
+	const a3d_draw_item* rhs = rhs_ptr;
+	unsigned int lhs_shader = 0;
+	unsigned int rhs_shader = 0;
+	const a3d_texture* lhs_texture = NULL;
+	const a3d_texture* rhs_texture = NULL;
+
+	/* items with the same shader and texture are grouped together */
+	if (lhs->material) {
+		lhs_shader = lhs->material->shader;
+		lhs_texture = lhs->material->albedo;
+	}
+	if (rhs->material) {
+		rhs_shader = rhs->material->shader;
+		rhs_texture = rhs->material->albedo;
+	}
+
+	/* sort by shader, texture, then mesh pointer */
+	if (lhs_shader != rhs_shader)
+		return (lhs_shader < rhs_shader) ? -1 : 1;
+	if (lhs_texture != rhs_texture)
+		return ((uintptr_t)lhs_texture < (uintptr_t)rhs_texture) ? -1 : 1;
+
+	if (lhs->mesh != rhs->mesh)
+		return ((uintptr_t)lhs->mesh < (uintptr_t)rhs->mesh) ? -1 : 1;
+
+	return 0;
+}
+

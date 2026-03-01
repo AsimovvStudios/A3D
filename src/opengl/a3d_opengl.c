@@ -9,8 +9,10 @@
 #include "a3d_gfx.h"
 #define A3D_LOG_TAG "GL"
 #include "a3d_logging.h"
+#include "a3d_material.h"
 #include "a3d_mesh.h"
 #include "a3d_renderer.h"
+#include "a3d_texture.h"
 #include "a3d_transform.h"
 #include "opengl/a3d_opengl.h"
 #include "opengl/a3d_opengl_shader.h"
@@ -52,8 +54,6 @@ bool a3d_gl_draw_frame(a3d* e)
 		e->gl.clear_colour[3]
 	);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	/* use shader program */
 	glUseProgram(e->gl.program);
 
 	/* get draw items from renderer */
@@ -61,30 +61,52 @@ bool a3d_gl_draw_frame(a3d* e)
 	Uint32 item_count = 0;
 	a3d_renderer_get_draw_items(e->renderer, &items, &item_count);
 
+	unsigned int bound_texture = 0;
+
 	/* draw each item */
 	for (Uint32 i = 0; i < item_count; i++) {
 		const a3d_mesh* mesh = items[i].mesh;
 		const a3d_mvp* mvp = &items[i].mvp;
+		const a3d_material* material = items[i].material ? items[i].material : &e->gl.default_material;
+		const a3d_texture* texture = material->albedo ? material->albedo : &e->gl.missing_texture;
+		unsigned int texture_id = texture->gpu.gl.id ? texture->gpu.gl.id : e->gl.missing_texture.gpu.gl.id;
+		float tint[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
 		if (!mesh)
 			continue;
+
+		if (material) {
+			tint[0] = material->tint[0];
+			tint[1] = material->tint[1];
+			tint[2] = material->tint[2];
+			tint[3] = material->tint[3];
+		}
+
+		if (bound_texture != texture_id) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture_id);
+			bound_texture = texture_id;
+		}
 
 		/* compose MVP matrix */
 		mat4 mvp_mat;
 		a3d_mvp_compose(mvp_mat, mvp);
 
 		/* upload MVP to shader */
-		if (e->gl.u_mvp_location >= 0) {
+		if (e->gl.u_mvp_location >= 0)
 			glUniformMatrix4fv(e->gl.u_mvp_location, 1, GL_FALSE, (const GLfloat*)mvp_mat);
-		}
+		if (e->gl.u_tint_location >= 0)
+			glUniform4fv(e->gl.u_tint_location, 1, tint);
 
 		/* bind VAO and draw */
 		glBindVertexArray(mesh->gpu.gl.vao);
-		glDrawElements(GL_TRIANGLES, (GLsizei)mesh->index_count, GL_UNSIGNED_SHORT, NULL);
+		glDrawElements(GL_TRIANGLES, (GLsizei)mesh->index_count, GL_UNSIGNED_INT, NULL);
 	}
 
 	/* unbind VAO */
 	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glUseProgram(0);
 
 	/* swap buffers */
 	SDL_GL_SwapWindow(e->window);
@@ -142,6 +164,7 @@ bool a3d_gl_init(a3d* e)
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
+	glEnable(GL_FRAMEBUFFER_SRGB);
 
 	/* set initial clear colour */
 	e->gl.clear_colour[0] = 0.0f;
@@ -167,6 +190,32 @@ bool a3d_gl_init(a3d* e)
 		A3D_LOG_WARN("u_mvp uniform not found in shader");
 	}
 
+	e->gl.u_albedo_location = glGetUniformLocation(e->gl.program, "u_albedo");
+	if (e->gl.u_albedo_location < 0)
+		A3D_LOG_WARN("u_albedo uniform not found in shader");
+
+	e->gl.u_tint_location = glGetUniformLocation(e->gl.program, "u_tint");
+	if (e->gl.u_tint_location < 0)
+		A3D_LOG_WARN("u_tint uniform not found in shader");
+
+	if (!a3d_gl_texture_load(e, &e->gl.missing_texture, NULL, false)) {
+		A3D_LOG_ERROR("failed to create missing texture fallback");
+		glDeleteProgram(e->gl.program);
+		e->gl.program = 0;
+		SDL_GL_DestroyContext(glctx);
+		e->gl.context = NULL;
+		return false;
+	}
+
+	a3d_material_init(&e->gl.default_material);
+	e->gl.default_material.shader = e->gl.program;
+	e->gl.default_material.albedo = &e->gl.missing_texture;
+
+	glUseProgram(e->gl.program);
+	if (e->gl.u_albedo_location >= 0)
+		glUniform1i(e->gl.u_albedo_location, 0);
+	glUseProgram(0);
+
 	/* set initial viewport */
 	int w, h;
 	SDL_GetWindowSizeInPixels(e->window, &w, &h);
@@ -181,19 +230,19 @@ bool a3d_gl_init_triangle(a3d* e, a3d_mesh* mesh)
 	A3D_LOG_INFO("creating triangle mesh (OpenGL)");
 
 	a3d_vertex vertices[] = {
-		{{ 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+		{{ 0.0f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.5f, 1.0f}},
+		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+		{{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
 	};
 
-	Uint16 indices[] = {0, 1, 2};
+	a3d_index indices[] = {0, 1, 2};
 
 	return a3d_mesh_upload(e, mesh, vertices, 3, indices, 3, A3D_TOPO_TRIANGLES);
 }
 
 bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 	const a3d_vertex* vertices, Uint32 vertex_count,
-	const Uint16* indices, Uint32 index_count,
+	const a3d_index* indices, Uint32 index_count,
 	a3d_topology topology
 )
 {
@@ -219,7 +268,7 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 	/* create EBO */
 	glGenBuffers(1, &mesh->gpu.gl.ebo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpu.gl.ebo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(sizeof(Uint16) * index_count), indices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(sizeof(a3d_index) * index_count), indices, GL_STATIC_DRAW);
 
 	/* set up vertex attributes */
 	glEnableVertexAttribArray(0);
@@ -239,7 +288,17 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 		GL_FLOAT,
 		GL_FALSE,
 		sizeof(a3d_vertex),
-		(void*)offsetof(a3d_vertex, colour)
+		(void*)offsetof(a3d_vertex, normal)
+	);
+
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(
+		2,
+		2,
+		GL_FLOAT,
+		GL_FALSE,
+		sizeof(a3d_vertex),
+		(void*)offsetof(a3d_vertex, uv)
 	);
 
 	/* unbind VAO */
@@ -306,6 +365,8 @@ void a3d_gl_shutdown(a3d* e)
 {
 	A3D_LOG_INFO("shutting down OpenGL backend");
 
+	a3d_gl_texture_destroy(e, &e->gl.missing_texture);
+
 	if (e->gl.program) {
 		glDeleteProgram(e->gl.program);
 		e->gl.program = 0;
@@ -333,8 +394,9 @@ const a3d_gfx_vtbl a3d_gl_vtbl = {
 	.recreate_or_resize = a3d_gl_resize,
 	.set_clear_colour = a3d_gl_set_clear_colour,
 	.wait_idle = a3d_gl_wait_idle,
+	.texture_load = a3d_gl_texture_load,
+	.texture_destroy = a3d_gl_texture_destroy,
 	.mesh_upload = a3d_gl_mesh_upload,
 	.mesh_init_triangle = a3d_gl_init_triangle,
 	.mesh_destroy = a3d_gl_destroy_mesh
 };
-

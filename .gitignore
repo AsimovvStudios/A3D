@@ -3,6 +3,7 @@ build/
 asimotive3d
 tools_c.sh
 tools_h.sh
+ignore/
 *.swp
 *.spv
 *.sh
