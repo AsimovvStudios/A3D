@@ -8,6 +8,7 @@
 #include <SDL3/SDL.h>
 
 #include "a3d.h"
+#include "a3d_assets.h"
 #include "a3d_event.h"
 #define A3D_LOG_TAG "CORE"
 #include "a3d_logging.h"
@@ -32,9 +33,9 @@ extern const a3d_gfx_vtbl a3d_gl_vtbl;
 
 float a3d_dt(const a3d* e)
 {
-    if (!e)
+	if (!e)
 		return 0.0f;
-    return e->dt;
+	return e->dt;
 }
 
 void a3d_frame(a3d* e)
@@ -197,6 +198,33 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 		return false;
 	}
 
+	e->assets = malloc(sizeof(*e->assets));
+	if (!e->assets) {
+		A3D_LOG_ERROR("failed to allocate asset manager");
+		a3d_renderer_shutdown(e->renderer);
+		free(e->renderer);
+		e->renderer = NULL;
+		if (e->gfx.v && e->gfx.v->shutdown)
+			e->gfx.v->shutdown(e);
+		SDL_DestroyWindow(e->window);
+		SDL_Quit();
+		return false;
+	}
+
+	if (!a3d_assets_init(e->assets)) {
+		A3D_LOG_ERROR("asset manager initialisation failed");
+		free(e->assets);
+		e->assets = NULL;
+		a3d_renderer_shutdown(e->renderer);
+		free(e->renderer);
+		e->renderer = NULL;
+		if (e->gfx.v && e->gfx.v->shutdown)
+			e->gfx.v->shutdown(e);
+		SDL_DestroyWindow(e->window);
+		SDL_Quit();
+		return false;
+	}
+
 	e->running = true;
 	e->handlers_count = 0;
 
@@ -207,13 +235,27 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 	/* sane defaults */
 	a3d_event_add_handler(e, SDL_EVENT_QUIT, a3d_event_on_quit);
 	a3d_event_add_handler(e, SDL_EVENT_WINDOW_CLOSE_REQUESTED, a3d_event_on_close_requested);
+	a3d_event_add_handler(e, SDL_EVENT_WINDOW_RESIZED, a3d_event_on_resize);
 	a3d_event_add_handler(e, SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED, a3d_event_on_resize);
+
+#if defined(BACKEND_GL)
+	if (e->backend == A3D_BACKEND_OPENGL &&
+		a3d_assets_register_shader(e->assets, "default", e->gl.program) == A3D_ASSET_INVALID_HANDLE) {
+		A3D_LOG_ERROR("failed to register default shader in asset manager");
+	}
+#endif
 
 	return true;
 }
 
 void a3d_quit(a3d *e)
 {
+	if (e->assets) {
+		a3d_assets_shutdown(e, e->assets);
+		free(e->assets);
+		e->assets = NULL;
+	}
+
 	if (e->renderer) {
 		a3d_renderer_shutdown(e->renderer);
 		free(e->renderer);
@@ -250,6 +292,42 @@ bool a3d_submit_mesh_material(
 		return false;
 
 	return a3d_renderer_draw_mesh_material(e->renderer, mesh, mvp, material);
+}
+
+bool a3d_draw_instanced(
+	a3d* e,
+	const a3d_mesh* mesh,
+	const a3d_material* material,
+	const a3d_mvp* instances,
+	Uint32 instance_count
+)
+{
+	if (!e || !e->renderer)
+		return false;
+
+	return a3d_renderer_draw_mesh_material_instanced(
+		e->renderer,
+		mesh,
+		material,
+		instances,
+		instance_count
+	);
+}
+
+a3d_assets* a3d_get_assets(a3d* e)
+{
+	if (!e)
+		return NULL;
+
+	return e->assets;
+}
+
+const a3d_assets* a3d_get_assets_const(const a3d* e)
+{
+	if (!e)
+		return NULL;
+
+	return e->assets;
 }
 
 void a3d_wait_idle(a3d* e)

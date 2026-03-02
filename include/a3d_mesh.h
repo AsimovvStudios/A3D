@@ -31,6 +31,7 @@ struct a3d_mesh {
 			unsigned int vao;
 			unsigned int vbo;
 			unsigned int ebo;
+			unsigned int instance_vbo;
 		} gl;
 	} gpu;
 };

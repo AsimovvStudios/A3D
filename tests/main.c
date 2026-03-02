@@ -1,4 +1,3 @@
-#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -10,10 +9,7 @@
 #include "a3d_event.h"
 #define A3D_LOG_TAG "TEST"
 #include "a3d_logging.h"
-#include "a3d_material.h"
-#include "a3d_mesh.h"
-#include "a3d_texture.h"
-#include "a3d_transform.h"
+#include "a3d_map.h"
 
 static void on_key_down(a3d* engine, const SDL_Event* ev);
 static void update_camera(a3d* engine, a3d_camera* cam);
@@ -84,25 +80,13 @@ int main(int argc, char** argv)
 
 	a3d_event_add_handler(&engine, SDL_EVENT_KEY_DOWN, on_key_down);
 
-	a3d_mesh model = {0};
-	if (!a3d_mesh_load_obj(&engine, &model, "assets/model.obj")) {
-		A3D_LOG_ERROR("failed to load assets/model.obj");
+	a3d_map map;
+	a3d_map_init(&map);
+	if (!a3d_map_load(&engine, &map, "assets/scene.a3dmap")) {
+		A3D_LOG_ERROR("failed to load assets/scene.a3dmap");
 		a3d_quit(&engine);
 		return EXIT_FAILURE;
 	}
-
-	a3d_texture diffuse = {0};
-	if (!a3d_texture_load(&engine, &diffuse, "assets/diffuse.png", false)) {
-		A3D_LOG_ERROR("failed to create texture resource");
-		a3d_destroy_mesh(&engine, &model);
-		a3d_quit(&engine);
-		return EXIT_FAILURE;
-	}
-
-	a3d_material material;
-	a3d_material_init(&material);
-	material.albedo = &diffuse;
-	material.shader = 0; /* use default shader */
 
 	a3d_camera camera;
 	a3d_camera_init(&camera);
@@ -114,27 +98,16 @@ int main(int argc, char** argv)
 	a3d_camera_set_perspective(&camera, aspect, backend);
 	a3d_camera_rebuild_view(&camera);
 
-	a3d_mvp mvp;
-	glm_mat4_identity(mvp.model);
-	glm_mat4_identity(mvp.view);
-	glm_mat4_identity(mvp.proj);
-
-	float time_accum = 0.0f;
 	int prev_w = width;
 	int prev_h = height;
 
 	while (engine.running) {
 		update_camera(&engine, &camera);
 
-		time_accum += a3d_dt(&engine);
-		glm_mat4_identity(mvp.model);
-		glm_rotate(mvp.model, time_accum * 0.5f, (vec3){0.0f, 1.0f, 0.0f});
-
-		glm_mat4_copy(camera.view, mvp.view);
-		glm_mat4_copy(camera.proj, mvp.proj);
+		a3d_map_reload_if_changed(&engine, &map);
 
 		a3d_frame_begin(&engine);
-		a3d_submit_mesh_material(&engine, &model, &mvp, &material);
+		a3d_map_submit(&engine, &map, camera.view, camera.proj);
 		a3d_frame_end(&engine);
 		a3d_frame(&engine);
 
@@ -152,8 +125,7 @@ int main(int argc, char** argv)
 	}
 
 	a3d_wait_idle(&engine);
-	a3d_texture_destroy(&engine, &diffuse);
-	a3d_destroy_mesh(&engine, &model);
+	a3d_map_clear(&engine, &map);
 	a3d_quit(&engine);
 	return EXIT_SUCCESS;
 }

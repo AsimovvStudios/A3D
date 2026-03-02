@@ -40,6 +40,7 @@ typedef void (*a3d_event_handler)(a3d *engine, const SDL_Event *e);
 typedef struct a3d_renderer a3d_renderer;
 typedef struct a3d_mesh a3d_mesh;
 typedef struct a3d_mvp a3d_mvp;
+typedef struct a3d_assets a3d_assets;
 
 #define A3D_MAX_HANDLERS 64
 typedef struct {
@@ -114,6 +115,7 @@ struct a3d {
 		int         u_mvp_location;
 		int         u_albedo_location;
 		int         u_tint_location;
+		int         u_use_instance_mvp_location;
 		float       clear_colour[4];
 		a3d_texture missing_texture;
 		a3d_material default_material;
@@ -121,6 +123,7 @@ struct a3d {
 #endif
 
 	a3d_renderer* renderer;
+	a3d_assets* assets;
 
 	/* timing */
 	Uint64      last_ticks;
@@ -143,4 +146,13 @@ bool a3d_submit_mesh_material(
 	const a3d_mvp* mvp,
 	const a3d_material* material
 );
+bool a3d_draw_instanced(
+	a3d* e,
+	const a3d_mesh* mesh,
+	const a3d_material* material,
+	const a3d_mvp* instances,
+	Uint32 instance_count
+);
+a3d_assets* a3d_get_assets(a3d* e);
+const a3d_assets* a3d_get_assets_const(const a3d* e);
 void a3d_wait_idle(a3d* e);
