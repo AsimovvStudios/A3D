@@ -7,7 +7,7 @@
 
 bool a3d_texture_load(a3d* e, a3d_texture* texture, const char* path, bool srgb)
 {
-	if (!e || !texture || !path) {
+	if (!e || !texture) {
 		A3D_LOG_ERROR("a3d_texture_load: invalid args");
 		return false;
 	}

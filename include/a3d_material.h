@@ -1,10 +1,10 @@
 #pragma once
 
-#include "a3d_texture.h"
+#include "a3d_handles.h"
 
 typedef struct a3d_material {
-	unsigned int shader;
-	const a3d_texture* albedo;
+	a3d_shader_handle shader;
+	a3d_texture_handle albedo;
 	float       tint[4];
 } a3d_material;
 

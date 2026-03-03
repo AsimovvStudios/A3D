@@ -5,8 +5,8 @@ void a3d_material_init(a3d_material* material)
 	if (!material)
 		return;
 
-	material->shader = 0;
-	material->albedo = NULL;
+	material->shader = A3D_ASSET_INVALID_HANDLE;
+	material->albedo = A3D_ASSET_INVALID_HANDLE;
 	a3d_material_set_tint(material, 1.0f, 1.0f, 1.0f, 1.0f);
 }
 

@@ -25,6 +25,9 @@ typedef struct a3d_map_entity_build {
 	float       scale[3];
 	float       tint[4];
 	bool        has_mesh;
+	bool        has_pos;
+	bool        has_rot;
+	bool        has_scale;
 } a3d_map_entity_build;
 
 static bool a3d_map_parse_file(a3d* e, a3d_map* out, const char* path, char* err, size_t err_size);
@@ -39,6 +42,8 @@ static bool a3d_map_finalize_entity(
 	a3d* e,
 	a3d_map* out,
 	const a3d_map_entity_build* build,
+	const char* path,
+	Uint32 line_no,
 	char* err,
 	size_t err_size
 );
@@ -114,9 +119,7 @@ bool a3d_map_submit(a3d* e, const a3d_map* map, const mat4 view, const mat4 proj
 	/* submit all entities to renderer */
 	for (Uint32 i = 0; i < map->entity_count; i++) {
 		const a3d_map_entity* entity = &map->entities[i];
-		const a3d_mesh* mesh = a3d_assets_get_mesh(e->assets, entity->mesh);
-		const a3d_material* material = a3d_assets_get_material(e->assets, entity->material);
-		if (!mesh)
+		if (entity->mesh == A3D_ASSET_INVALID_HANDLE)
 			continue;
 
 		a3d_mvp mvp;
@@ -138,7 +141,7 @@ bool a3d_map_submit(a3d* e, const a3d_map* map, const mat4 view, const mat4 proj
 
 		memcpy(mvp.view, view, sizeof(mat4));
 		memcpy(mvp.proj, proj, sizeof(mat4));
-		a3d_submit_mesh_material(e, mesh, &mvp, material);
+		a3d_submit_mesh_material_handle(e, entity->mesh, entity->material, &mvp);
 	}
 
 	return true;
@@ -172,7 +175,7 @@ static bool a3d_map_parse_file(a3d* e, a3d_map* out, const char* path, char* err
 
 	f = fopen(path, "rb");
 	if (!f) {
-		a3d_map_set_error(err, err_size, "open failed: %s", strerror(errno));
+		a3d_map_set_error(err, err_size, "%s:%u open failed: %s", path, 0u, strerror(errno));
 		goto cleanup;
 	}
 
@@ -225,7 +228,7 @@ static bool a3d_map_parse_file(a3d* e, a3d_map* out, const char* path, char* err
 		}
 
 		if (strcmp(line, "end") == 0) {
-			if (!a3d_map_finalize_entity(e, &parsed, &build, err, err_size))
+			if (!a3d_map_finalize_entity(e, &parsed, &build, path, line_no, err, err_size))
 				goto cleanup;
 			in_entity = false;
 			continue;
@@ -246,6 +249,9 @@ static bool a3d_map_parse_file(a3d* e, a3d_map* out, const char* path, char* err
 			snprintf(build.mesh_path, sizeof(build.mesh_path), "%s", value);
 			build.has_mesh = (build.mesh_path[0] != '\0');
 		}
+		else if (strcmp(key, "name") == 0) {
+			snprintf(build.name, sizeof(build.name), "%s", value);
+		}
 		else if (strcmp(key, "texture") == 0) {
 			snprintf(build.texture_path, sizeof(build.texture_path), "%s", value);
 		}
@@ -254,18 +260,21 @@ static bool a3d_map_parse_file(a3d* e, a3d_map* out, const char* path, char* err
 				a3d_map_set_error(err, err_size, "%s:%u invalid pos vec3", path, line_no);
 				goto cleanup;
 			}
+			build.has_pos = true;
 		}
 		else if (strcmp(key, "rot") == 0 || strcmp(key, "rotation_deg") == 0) {
 			if (!a3d_map_parse_vec3(value, build.rotation_deg)) {
 				a3d_map_set_error(err, err_size, "%s:%u invalid rot vec3", path, line_no);
 				goto cleanup;
 			}
+			build.has_rot = true;
 		}
 		else if (strcmp(key, "scale") == 0) {
 			if (!a3d_map_parse_vec3(value, build.scale)) {
 				a3d_map_set_error(err, err_size, "%s:%u invalid scale vec3", path, line_no);
 				goto cleanup;
 			}
+			build.has_scale = true;
 		}
 		else if (strcmp(key, "tint") == 0) {
 			if (!a3d_map_parse_vec4(value, build.tint)) {
@@ -285,7 +294,7 @@ static bool a3d_map_parse_file(a3d* e, a3d_map* out, const char* path, char* err
 	}
 
 	if (parsed.version != 1) {
-		a3d_map_set_error(err, err_size, "%s invalid version %u (expected 1)", path, parsed.version);
+		a3d_map_set_error(err, err_size, "%s:%u invalid version %u (expected 1)", path, 1u, parsed.version);
 		goto cleanup;
 	}
 
@@ -410,18 +419,25 @@ static bool a3d_map_parse_entity_header(const char* line, char out_name[A3D_MAP_
 	if (!line || !out_name)
 		return false;
 
-	char name[A3D_MAP_ENTITY_NAME_MAX] = {0};
-	if (sscanf(line, "entity %63s", name) != 1)
-		return false;
+	out_name[0] = '\0';
+	if (strcmp(line, "entity") == 0)
+		return true;
 
-	snprintf(out_name, A3D_MAP_ENTITY_NAME_MAX, "%s", name);
-	return true;
+	char name[A3D_MAP_ENTITY_NAME_MAX] = {0};
+	if (sscanf(line, "entity %63s", name) == 1) {
+		snprintf(out_name, A3D_MAP_ENTITY_NAME_MAX, "%s", name);
+		return true;
+	}
+
+	return false;
 }
 
 static bool a3d_map_finalize_entity(
 	a3d* e,
 	a3d_map* out,
 	const a3d_map_entity_build* build,
+	const char* path,
+	Uint32 line_no,
 	char* err,
 	size_t err_size
 )
@@ -430,13 +446,28 @@ static bool a3d_map_finalize_entity(
 		return false;
 
 	if (!build->has_mesh) {
-		a3d_map_set_error(err, err_size, "entity '%s' missing mesh", build->name);
+		a3d_map_set_error(err, err_size, "%s:%u entity missing required 'mesh'", path, line_no);
+		return false;
+	}
+	if (!build->has_pos) {
+		a3d_map_set_error(err, err_size, "%s:%u entity missing required 'pos'", path, line_no);
+		return false;
+	}
+	if (!build->has_rot) {
+		a3d_map_set_error(err, err_size, "%s:%u entity missing required 'rot'", path, line_no);
+		return false;
+	}
+	if (!build->has_scale) {
+		a3d_map_set_error(err, err_size, "%s:%u entity missing required 'scale'", path, line_no);
 		return false;
 	}
 
 	a3d_map_entity* entity = &out->entities[out->entity_count];
 	memset(entity, 0, sizeof(*entity));
-	snprintf(entity->name, sizeof(entity->name), "%s", build->name);
+	if (build->name[0] != '\0')
+		snprintf(entity->name, sizeof(entity->name), "%s", build->name);
+	else
+		snprintf(entity->name, sizeof(entity->name), "entity_%u", out->entity_count);
 	entity->mesh = A3D_ASSET_INVALID_HANDLE;
 	entity->material = A3D_ASSET_INVALID_HANDLE;
 	entity->position[0] = build->position[0];
@@ -457,7 +488,7 @@ static bool a3d_map_finalize_entity(
 
 	entity->mesh = a3d_assets_load_obj_mesh(e, assets, build->mesh_path);
 	if (entity->mesh == A3D_ASSET_INVALID_HANDLE) {
-		a3d_map_set_error(err, err_size, "failed mesh load: %s", build->mesh_path);
+		a3d_map_set_error(err, err_size, "%s:%u failed mesh load: %s", path, line_no, build->mesh_path);
 		return false;
 	}
 
@@ -479,7 +510,11 @@ static bool a3d_map_finalize_entity(
 			a3d_assets_release_texture(e, assets, texture);
 		a3d_assets_release_mesh(e, assets, entity->mesh);
 		entity->mesh = A3D_ASSET_INVALID_HANDLE;
-		a3d_map_set_error(err, err_size, "failed material create for entity '%s'", build->name);
+		a3d_map_set_error(err, err_size, "%s:%u failed material create for entity '%s'",
+			path,
+			line_no,
+			entity->name
+		);
 		return false;
 	}
 

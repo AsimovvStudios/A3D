@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include "a3d_gfx.h"
+#include "a3d_handles.h"
 #include "a3d_material.h"
 #include "a3d_texture.h"
 
@@ -116,9 +117,10 @@ struct a3d {
 		int         u_albedo_location;
 		int         u_tint_location;
 		int         u_use_instance_mvp_location;
+		a3d_shader_handle default_shader;
+		a3d_texture_handle default_texture;
+		a3d_material_handle default_material;
 		float       clear_colour[4];
-		a3d_texture missing_texture;
-		a3d_material default_material;
 	} gl;
 #endif
 
@@ -139,20 +141,21 @@ bool a3d_init(a3d* e, const char* title, int w, int h);
 bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int w, int h);
 void a3d_quit(a3d* e);
 void a3d_set_clear_colour(a3d* e, float r, float g, float b, float a);
-bool a3d_submit_mesh(a3d* e, const a3d_mesh* mesh, const a3d_mvp* mvp);
-bool a3d_submit_mesh_material(
+bool a3d_submit_mesh_handle(a3d* e, a3d_mesh_handle mesh, const a3d_mvp* mvp);
+bool a3d_submit_mesh_material_handle(
 	a3d* e,
-	const a3d_mesh* mesh,
-	const a3d_mvp* mvp,
-	const a3d_material* material
+	a3d_mesh_handle mesh,
+	a3d_material_handle material,
+	const a3d_mvp* mvp
 );
 bool a3d_draw_instanced(
 	a3d* e,
-	const a3d_mesh* mesh,
-	const a3d_material* material,
+	a3d_mesh_handle mesh,
+	a3d_material_handle material,
 	const a3d_mvp* instances,
 	Uint32 instance_count
 );
 a3d_assets* a3d_get_assets(a3d* e);
 const a3d_assets* a3d_get_assets_const(const a3d* e);
 void a3d_wait_idle(a3d* e);
+

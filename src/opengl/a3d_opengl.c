@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 
 #include "a3d.h"
+#include "a3d_assets.h"
 #include "a3d_gfx.h"
 #define A3D_LOG_TAG "GL"
 #include "a3d_logging.h"
@@ -17,7 +18,8 @@
 #include "opengl/a3d_opengl.h"
 #include "opengl/a3d_opengl_shader.h"
 
-static unsigned int a3d_gl_select_program(a3d* e, const a3d_material* material);
+static unsigned int a3d_gl_create_fallback_program(void);
+static unsigned int a3d_gl_select_program(a3d* e, a3d_shader_handle shader);
 static void a3d_gl_get_uniform_locations(
 	const a3d* e,
 	unsigned int program,
@@ -64,7 +66,7 @@ void a3d_gl_destroy_mesh(a3d* e, a3d_mesh* mesh)
 
 bool a3d_gl_draw_frame(a3d* e)
 {
-	if (!e || !e->renderer) {
+	if (!e || !e->renderer || !e->assets) {
 		A3D_LOG_ERROR("a3d_gl_draw_frame: invalid engine state");
 		return false;
 	}
@@ -91,6 +93,7 @@ bool a3d_gl_draw_frame(a3d* e)
 
 	unsigned int bound_program = 0;
 	unsigned int bound_texture = 0;
+	unsigned int bound_vao = 0;
 	int u_mvp = -1;
 	int u_albedo = -1;
 	int u_tint = -1;
@@ -98,16 +101,39 @@ bool a3d_gl_draw_frame(a3d* e)
 
 	/* draw each item */
 	for (Uint32 i = 0; i < item_count; i++) {
-		const a3d_mesh* mesh = items[i].mesh;
-		const a3d_material* material = items[i].material ? items[i].material : &e->gl.default_material;
-		const a3d_texture* texture = material->albedo ? material->albedo : &e->gl.missing_texture;
-		unsigned int texture_id = texture->gpu.gl.id ? texture->gpu.gl.id : e->gl.missing_texture.gpu.gl.id;
-		unsigned int program = a3d_gl_select_program(e, material);
+		const a3d_mesh* mesh = a3d_assets_get_mesh(e->assets, items[i].mesh);
+		a3d_material_handle material_handle = items[i].material;
+		if (material_handle == A3D_ASSET_INVALID_HANDLE)
+			material_handle = e->gl.default_material;
+		const a3d_material* material = a3d_assets_get_material(e->assets, material_handle);
+		if (!material)
+			material = a3d_assets_get_material(e->assets, e->gl.default_material);
+
+		a3d_shader_handle shader_handle = items[i].sort_shader;
+		a3d_texture_handle texture_handle = items[i].sort_texture;
+		if (material) {
+			if (shader_handle == A3D_ASSET_INVALID_HANDLE)
+				shader_handle = material->shader;
+			if (texture_handle == A3D_ASSET_INVALID_HANDLE)
+				texture_handle = material->albedo;
+		}
+		if (shader_handle == A3D_ASSET_INVALID_HANDLE)
+			shader_handle = e->gl.default_shader;
+		if (texture_handle == A3D_ASSET_INVALID_HANDLE)
+			texture_handle = e->gl.default_texture;
+
+		const a3d_texture* texture = a3d_assets_get_texture(e->assets, texture_handle);
+		if (!texture)
+			texture = a3d_assets_get_texture(e->assets, e->gl.default_texture);
+		unsigned int texture_id = texture ? texture->gpu.gl.id : 0;
+		unsigned int program = a3d_gl_select_program(e, shader_handle);
 		float tint[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
 		if (!mesh)
 			continue;
 		if (mesh->gpu.gl.vao == 0 || mesh->index_count == 0)
+			continue;
+		if (texture_id == 0)
 			continue;
 
 		if (bound_program != program) {
@@ -141,7 +167,10 @@ bool a3d_gl_draw_frame(a3d* e)
 		if (u_tint >= 0)
 			glUniform4fv(u_tint, 1, tint);
 
-		glBindVertexArray(mesh->gpu.gl.vao);
+		if (bound_vao != mesh->gpu.gl.vao) {
+			glBindVertexArray(mesh->gpu.gl.vao);
+			bound_vao = mesh->gpu.gl.vao;
+		}
 		if (items[i].instance_count > 0) {
 			const mat4* instance_mvps = &e->renderer->instance_mvp_pool[items[i].instance_offset];
 			if (u_use_instance_mvp >= 0) {
@@ -264,10 +293,14 @@ bool a3d_gl_init(a3d* e)
 		"shaders_gl/triangle.frag"
 	);
 	if (e->gl.program == 0) {
-		A3D_LOG_ERROR("failed to create shader program");
-		SDL_GL_DestroyContext(glctx);
-		e->gl.context = NULL;
-		return false;
+		A3D_LOG_WARN("shader files missing/invalid, using (embedded) fallback shader");
+		e->gl.program = a3d_gl_create_fallback_program();
+		if (e->gl.program == 0) {
+			A3D_LOG_ERROR("failed to create fallback shader program");
+			SDL_GL_DestroyContext(glctx);
+			e->gl.context = NULL;
+			return false;
+		}
 	}
 
 	/* get uniform location */
@@ -288,25 +321,16 @@ bool a3d_gl_init(a3d* e)
 	if (e->gl.u_use_instance_mvp_location < 0)
 		A3D_LOG_WARN("u_use_instance_mvp uniform not found in shader");
 
-	if (!a3d_gl_texture_load(e, &e->gl.missing_texture, NULL, false)) {
-		A3D_LOG_ERROR("failed to create missing texture fallback");
-		glDeleteProgram(e->gl.program);
-		e->gl.program = 0;
-		SDL_GL_DestroyContext(glctx);
-		e->gl.context = NULL;
-		return false;
-	}
-
-	a3d_material_init(&e->gl.default_material);
-	e->gl.default_material.shader = e->gl.program;
-	e->gl.default_material.albedo = &e->gl.missing_texture;
-
 	glUseProgram(e->gl.program);
 	if (e->gl.u_albedo_location >= 0)
 		glUniform1i(e->gl.u_albedo_location, 0);
 	if (e->gl.u_use_instance_mvp_location >= 0)
 		glUniform1i(e->gl.u_use_instance_mvp_location, 0);
 	glUseProgram(0);
+
+	/* fallback shader can read vertex color from a constant attrib (location 7). */
+	glDisableVertexAttribArray(7);
+	glVertexAttrib4f(7, 1.0f, 1.0f, 1.0f, 1.0f);
 
 	/* set initial viewport */
 	int w, h;
@@ -498,8 +522,6 @@ void a3d_gl_shutdown(a3d* e)
 {
 	A3D_LOG_INFO("shutting down OpenGL backend");
 
-	a3d_gl_texture_destroy(e, &e->gl.missing_texture);
-
 	if (e->gl.program) {
 		glDeleteProgram(e->gl.program);
 		e->gl.program = 0;
@@ -519,11 +541,57 @@ void a3d_gl_wait_idle(a3d* e)
 	glFinish();
 }
 
-static unsigned int a3d_gl_select_program(a3d* e, const a3d_material* material)
+static unsigned int a3d_gl_create_fallback_program(void)
 {
-	unsigned int program = e->gl.program;
-	if (material && material->shader != 0)
-		program = material->shader;
+	static const char* fallback_vert =
+		"#version 330 core\n"
+		"layout(location = 0) in vec3 in_pos;\n"
+		"layout(location = 2) in vec2 in_uv;\n"
+		"layout(location = 3) in mat4 in_instance_mvp;\n"
+		"layout(location = 7) in vec4 in_color;\n"
+		"out vec2 v_uv;\n"
+		"out vec4 v_color;\n"
+		"uniform mat4 u_mvp;\n"
+		"uniform int u_use_instance_mvp;\n"
+		"void main() {\n"
+		"  mat4 draw_mvp = (u_use_instance_mvp != 0) ? in_instance_mvp : u_mvp;\n"
+		"  gl_Position = draw_mvp * vec4(in_pos, 1.0);\n"
+		"  v_uv = in_uv;\n"
+		"  v_color = in_color;\n"
+		"}\n";
+	static const char* fallback_frag =
+		"#version 330 core\n"
+		"in vec2 v_uv;\n"
+		"in vec4 v_color;\n"
+		"out vec4 out_colour;\n"
+		"uniform sampler2D u_albedo;\n"
+		"uniform vec4 u_tint;\n"
+		"void main() {\n"
+		"  out_colour = texture(u_albedo, v_uv) * u_tint * v_color;\n"
+		"}\n";
+
+	unsigned int vert = a3d_gl_compile_shader(fallback_vert, GL_VERTEX_SHADER);
+	if (!vert)
+		return 0;
+	unsigned int frag = a3d_gl_compile_shader(fallback_frag, GL_FRAGMENT_SHADER);
+	if (!frag) {
+		glDeleteShader(vert);
+		return 0;
+	}
+
+	unsigned int program = a3d_gl_link_program(vert, frag);
+	glDeleteShader(vert);
+	glDeleteShader(frag);
+	return program;
+}
+
+static unsigned int a3d_gl_select_program(a3d* e, a3d_shader_handle shader)
+{
+	unsigned int program = 0;
+	if (e->assets && shader != A3D_ASSET_INVALID_HANDLE)
+		program = a3d_assets_shader_id(e->assets, shader);
+	if (!program)
+		program = e->gl.program;
 
 	if (!program || !glIsProgram(program)) {
 		A3D_LOG_WARN("material shader is invalid; using default shader");

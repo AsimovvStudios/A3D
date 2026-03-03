@@ -3,18 +3,12 @@
 #include <stdbool.h>
 #include <SDL3/SDL_stdinc.h>
 
+#include "a3d_handles.h"
 #include "a3d_material.h"
 #include "a3d_mesh.h"
 #include "a3d_texture.h"
 
 typedef struct a3d a3d;
-
-typedef Uint32 a3d_texture_handle;
-typedef Uint32 a3d_mesh_handle;
-typedef Uint32 a3d_material_handle;
-typedef Uint32 a3d_shader_handle;
-
-#define A3D_ASSET_INVALID_HANDLE 0u
 
 #define A3D_ASSET_PATH_MAX 512
 #define A3D_ASSET_NAME_MAX 64
@@ -42,8 +36,6 @@ typedef struct a3d_asset_mesh_slot {
 typedef struct a3d_asset_material_slot {
 	bool        used;
 	Uint32      refs;
-	a3d_shader_handle shader;
-	a3d_texture_handle albedo_texture;
 	a3d_material value;
 } a3d_asset_material_slot;
 

@@ -3,17 +3,18 @@
 #include <stdbool.h>
 #include <SDL3/SDL_stdinc.h>
 
-#include "a3d_material.h"
-#include "a3d_mesh.h"
+#include "a3d_handles.h"
 #include "a3d_transform.h"
 
 #define A3D_RENDERER_MAX_DRAW_CALLS 1024 /* change later */
 #define A3D_RENDERER_MAX_INSTANCES 8192
 
 typedef struct a3d_draw_item {
-	const a3d_mesh* mesh;
-	const a3d_material* material;
+	a3d_mesh_handle mesh;
+	a3d_material_handle material;
 	a3d_mvp     mvp;
+	a3d_shader_handle sort_shader;
+	a3d_texture_handle sort_texture;
 	Uint32      instance_offset;
 	Uint32      instance_count;
 } a3d_draw_item;
@@ -26,17 +27,21 @@ struct a3d_renderer {
 	bool        frame_active;
 };
 
-bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp* mvp);
+bool a3d_renderer_draw_mesh(a3d_renderer* r, a3d_mesh_handle mesh, const a3d_mvp* mvp);
 bool a3d_renderer_draw_mesh_material(
 	a3d_renderer* r,
-	const a3d_mesh* mesh,
+	a3d_mesh_handle mesh,
 	const a3d_mvp* mvp,
-	const a3d_material* material
+	a3d_material_handle material,
+	a3d_shader_handle sort_shader,
+	a3d_texture_handle sort_texture
 );
 bool a3d_renderer_draw_mesh_material_instanced(
 	a3d_renderer* r,
-	const a3d_mesh* mesh,
-	const a3d_material* material,
+	a3d_mesh_handle mesh,
+	a3d_material_handle material,
+	a3d_shader_handle sort_shader,
+	a3d_texture_handle sort_texture,
 	const a3d_mvp* instances,
 	Uint32 instance_count
 );

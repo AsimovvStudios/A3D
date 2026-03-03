@@ -31,6 +31,79 @@ extern const a3d_gfx_vtbl a3d_vk_vtbl;
 extern const a3d_gfx_vtbl a3d_gl_vtbl;
 #endif
 
+static void a3d_default_handles(
+	const a3d* e,
+	a3d_material_handle* out_material,
+	a3d_shader_handle* out_shader,
+	a3d_texture_handle* out_texture
+)
+{
+	if (out_material)
+		*out_material = A3D_ASSET_INVALID_HANDLE;
+	if (out_shader)
+		*out_shader = A3D_ASSET_INVALID_HANDLE;
+	if (out_texture)
+		*out_texture = A3D_ASSET_INVALID_HANDLE;
+
+#if defined(BACKEND_GL)
+	if (e && e->backend == A3D_BACKEND_OPENGL) {
+		if (out_material)
+			*out_material = e->gl.default_material;
+		if (out_shader)
+			*out_shader = e->gl.default_shader;
+		if (out_texture)
+			*out_texture = e->gl.default_texture;
+	}
+#else
+	(void)e;
+#endif
+}
+
+static void a3d_resolve_material_keys(
+	const a3d* e,
+	a3d_material_handle requested_material,
+	a3d_material_handle* out_material,
+	a3d_shader_handle* out_shader,
+	a3d_texture_handle* out_texture
+)
+{
+	/* defaults */
+	a3d_material_handle fallback_material = A3D_ASSET_INVALID_HANDLE;
+	a3d_shader_handle fallback_shader = A3D_ASSET_INVALID_HANDLE;
+	a3d_texture_handle fallback_texture = A3D_ASSET_INVALID_HANDLE;
+	a3d_default_handles(e, &fallback_material, &fallback_shader, &fallback_texture);
+
+	/* resolve material */
+	a3d_material_handle resolved_material = requested_material;
+	if (resolved_material == A3D_ASSET_INVALID_HANDLE)
+		resolved_material = fallback_material;
+
+	/* resolve shader, texture from mat (fallback if invalid) */
+	const a3d_material* material = NULL;
+	if (e && e->assets && resolved_material != A3D_ASSET_INVALID_HANDLE)
+		material = a3d_assets_get_material(e->assets, resolved_material);
+	if (!material && e && e->assets && fallback_material != A3D_ASSET_INVALID_HANDLE) {
+		resolved_material = fallback_material;
+		material = a3d_assets_get_material(e->assets, resolved_material);
+	}
+
+	a3d_shader_handle shader = fallback_shader;
+	a3d_texture_handle texture = fallback_texture;
+	if (material) {
+		if (material->shader != A3D_ASSET_INVALID_HANDLE)
+			shader = material->shader;
+		if (material->albedo != A3D_ASSET_INVALID_HANDLE)
+			texture = material->albedo;
+	}
+
+	if (out_material)
+		*out_material = resolved_material;
+	if (out_shader)
+		*out_shader = shader;
+	if (out_texture)
+		*out_texture = texture;
+}
+
 float a3d_dt(const a3d* e)
 {
 	if (!e)
@@ -239,12 +312,34 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 	a3d_event_add_handler(e, SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED, a3d_event_on_resize);
 
 #if defined(BACKEND_GL)
-	if (e->backend == A3D_BACKEND_OPENGL &&
-		a3d_assets_register_shader(e->assets, "default", e->gl.program) == A3D_ASSET_INVALID_HANDLE) {
-		A3D_LOG_ERROR("failed to register default shader in asset manager");
+	if (e->backend == A3D_BACKEND_OPENGL) {
+		const float white_tint[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+		e->gl.default_shader = a3d_assets_register_shader(e->assets, "default", e->gl.program);
+		if (e->gl.default_shader == A3D_ASSET_INVALID_HANDLE) {
+			A3D_LOG_ERROR("failed to register default shader in asset manager");
+			a3d_quit(e);
+			return false;
+		}
+		e->gl.default_texture = a3d_assets_load_texture(e, e->assets, NULL, false);
+		if (e->gl.default_texture == A3D_ASSET_INVALID_HANDLE) {
+			A3D_LOG_ERROR("failed to create fallback checker texture");
+			a3d_quit(e);
+			return false;
+		}
+		e->gl.default_material = a3d_assets_create_textured_material(
+			e->assets,
+			e->gl.default_shader,
+			e->gl.default_texture,
+			white_tint
+		);
+		if (e->gl.default_material == A3D_ASSET_INVALID_HANDLE) {
+			A3D_LOG_ERROR("failed to create default fallback material");
+			a3d_quit(e);
+			return false;
+		}
 	}
 #endif
-
+	/* TODO vulkan */
 	return true;
 }
 
@@ -265,7 +360,11 @@ void a3d_quit(a3d *e)
 	if (e->gfx.v && e->gfx.v->shutdown)
 		e->gfx.v->shutdown(e);
 
-	SDL_DestroyWindow(e->window);
+	if (e->window) {
+		SDL_DestroyWindow(e->window);
+		e->window = NULL;
+	}
+	e->running = false;
 	SDL_Quit();
 }
 
@@ -275,40 +374,84 @@ void a3d_set_clear_colour(a3d* e, float r, float g, float b, float a)
 		e->gfx.v->set_clear_colour(e, r, g, b, a);
 }
 
-bool a3d_submit_mesh(a3d* e, const a3d_mesh* mesh, const a3d_mvp* mvp)
-{
-	/* TODO */
-	return a3d_submit_mesh_material(e, mesh, mvp, NULL);
-}
-
-bool a3d_submit_mesh_material(
+bool a3d_submit_mesh_material_handle(
 	a3d* e,
-	const a3d_mesh* mesh,
-	const a3d_mvp* mvp,
-	const a3d_material* material
+	a3d_mesh_handle mesh,
+	a3d_material_handle material,
+	const a3d_mvp* mvp
 )
 {
-	if (!e || !e->renderer)
+	if (!e || !e->renderer || !e->assets || !mvp)
 		return false;
+	if (!a3d_assets_get_mesh(e->assets, mesh)) {
+		A3D_LOG_WARN("submit skipped: invalid mesh handle=%u", mesh);
+		return false;
+	}
 
-	return a3d_renderer_draw_mesh_material(e->renderer, mesh, mvp, material);
+	/* get material to shader, texture (fallback if invalid) */
+	a3d_material_handle resolved_material = A3D_ASSET_INVALID_HANDLE;
+	a3d_shader_handle sort_shader = A3D_ASSET_INVALID_HANDLE;
+	a3d_texture_handle sort_texture = A3D_ASSET_INVALID_HANDLE;
+	a3d_resolve_material_keys(
+		e,
+		material,
+		&resolved_material,
+		&sort_shader,
+		&sort_texture
+	);
+
+	return a3d_renderer_draw_mesh_material(
+		e->renderer,
+		mesh,
+		mvp,
+		resolved_material,
+		sort_shader,
+		sort_texture
+	);
+}
+
+bool a3d_submit_mesh_handle(a3d* e, a3d_mesh_handle mesh, const a3d_mvp* mvp)
+{
+	return a3d_submit_mesh_material_handle(
+		e,
+		mesh,
+		A3D_ASSET_INVALID_HANDLE,
+		mvp
+	);
 }
 
 bool a3d_draw_instanced(
 	a3d* e,
-	const a3d_mesh* mesh,
-	const a3d_material* material,
+	a3d_mesh_handle mesh,
+	a3d_material_handle material,
 	const a3d_mvp* instances,
 	Uint32 instance_count
 )
 {
-	if (!e || !e->renderer)
+	if (!e || !e->renderer || !e->assets || !instances || instance_count == 0)
 		return false;
+	if (!a3d_assets_get_mesh(e->assets, mesh)) {
+		A3D_LOG_WARN("instanced submit skipped: invalid mesh handle=%u", mesh);
+		return false;
+	}
+
+	a3d_material_handle resolved_material = A3D_ASSET_INVALID_HANDLE;
+	a3d_shader_handle sort_shader = A3D_ASSET_INVALID_HANDLE;
+	a3d_texture_handle sort_texture = A3D_ASSET_INVALID_HANDLE;
+	a3d_resolve_material_keys(
+		e,
+		material,
+		&resolved_material,
+		&sort_shader,
+		&sort_texture
+	);
 
 	return a3d_renderer_draw_mesh_material_instanced(
 		e->renderer,
 		mesh,
-		material,
+		resolved_material,
+		sort_shader,
+		sort_texture,
 		instances,
 		instance_count
 	);

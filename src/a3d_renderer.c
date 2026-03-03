@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <stdint.h>
 
 #include "a3d_renderer.h"
 #define A3D_LOG_TAG "CORE"
@@ -7,16 +6,25 @@
 
 static int a3d_renderer_compare_draw_items(const void* lhs_ptr, const void* rhs_ptr);
 
-bool a3d_renderer_draw_mesh(a3d_renderer* r, const a3d_mesh* mesh, const a3d_mvp* mvp)
+bool a3d_renderer_draw_mesh(a3d_renderer* r, a3d_mesh_handle mesh, const a3d_mvp* mvp)
 {
-	return a3d_renderer_draw_mesh_material(r, mesh, mvp, NULL);
+	return a3d_renderer_draw_mesh_material(
+		r,
+		mesh,
+		mvp,
+		A3D_ASSET_INVALID_HANDLE,
+		A3D_ASSET_INVALID_HANDLE,
+		A3D_ASSET_INVALID_HANDLE
+	);
 }
 
 bool a3d_renderer_draw_mesh_material(
 	a3d_renderer* r,
-	const a3d_mesh* mesh,
+	a3d_mesh_handle mesh,
 	const a3d_mvp* mvp,
-	const a3d_material* material
+	a3d_material_handle material,
+	a3d_shader_handle sort_shader,
+	a3d_texture_handle sort_texture
 )
 {
 	if (!r) {
@@ -34,7 +42,7 @@ bool a3d_renderer_draw_mesh_material(
 		return false;
 	}
 
-	if (!mesh || !mvp) {
+	if (!mvp || mesh == A3D_ASSET_INVALID_HANDLE) {
 		A3D_LOG_ERROR("renderer_draw_mesh: bad args");
 		return false;
 	}
@@ -42,6 +50,8 @@ bool a3d_renderer_draw_mesh_material(
 	r->items[r->count].mesh = mesh;
 	r->items[r->count].material = material;
 	r->items[r->count].mvp = *mvp;
+	r->items[r->count].sort_shader = sort_shader;
+	r->items[r->count].sort_texture = sort_texture;
 	r->items[r->count].instance_offset = 0;
 	r->items[r->count].instance_count = 0;
 	r->count++;
@@ -51,8 +61,10 @@ bool a3d_renderer_draw_mesh_material(
 
 bool a3d_renderer_draw_mesh_material_instanced(
 	a3d_renderer* r,
-	const a3d_mesh* mesh,
-	const a3d_material* material,
+	a3d_mesh_handle mesh,
+	a3d_material_handle material,
+	a3d_shader_handle sort_shader,
+	a3d_texture_handle sort_texture,
 	const a3d_mvp* instances,
 	Uint32 instance_count
 )
@@ -62,7 +74,7 @@ bool a3d_renderer_draw_mesh_material_instanced(
 		return false;
 	}
 
-	if (!mesh || !instances || instance_count == 0) {
+	if (!instances || instance_count == 0 || mesh == A3D_ASSET_INVALID_HANDLE) {
 		A3D_LOG_ERROR("a3d_renderer_draw_mesh_material_instanced: bad args");
 		return false;
 	}
@@ -90,6 +102,8 @@ bool a3d_renderer_draw_mesh_material_instanced(
 	r->items[r->count].mesh = mesh;
 	r->items[r->count].material = material;
 	r->items[r->count].mvp = instances[0];
+	r->items[r->count].sort_shader = sort_shader;
+	r->items[r->count].sort_texture = sort_texture;
 	r->items[r->count].instance_offset = offset;
 	r->items[r->count].instance_count = instance_count;
 	r->count++;
@@ -166,33 +180,13 @@ static int a3d_renderer_compare_draw_items(const void* lhs_ptr, const void* rhs_
 {
 	const a3d_draw_item* lhs = lhs_ptr;
 	const a3d_draw_item* rhs = rhs_ptr;
-	unsigned int lhs_shader = 0;
-	unsigned int rhs_shader = 0;
-	const a3d_texture* lhs_texture = NULL;
-	const a3d_texture* rhs_texture = NULL;
-	const a3d_material* lhs_material = lhs->material;
-	const a3d_material* rhs_material = rhs->material;
 
-	/* items with the same shader and texture are grouped together */
-	if (lhs->material) {
-		lhs_shader = lhs->material->shader;
-		lhs_texture = lhs->material->albedo;
-	}
-	if (rhs->material) {
-		rhs_shader = rhs->material->shader;
-		rhs_texture = rhs->material->albedo;
-	}
-
-	/* sort by shader, material, texture, then mesh pointer */
-	if (lhs_shader != rhs_shader)
-		return (lhs_shader < rhs_shader) ? -1 : 1;
-	if (lhs_material != rhs_material)
-		return ((uintptr_t)lhs_material < (uintptr_t)rhs_material) ? -1 : 1;
-	if (lhs_texture != rhs_texture)
-		return ((uintptr_t)lhs_texture < (uintptr_t)rhs_texture) ? -1 : 1;
-
+	if (lhs->sort_shader != rhs->sort_shader)
+		return (lhs->sort_shader < rhs->sort_shader) ? -1 : 1;
+	if (lhs->sort_texture != rhs->sort_texture)
+		return (lhs->sort_texture < rhs->sort_texture) ? -1 : 1;
 	if (lhs->mesh != rhs->mesh)
-		return ((uintptr_t)lhs->mesh < (uintptr_t)rhs->mesh) ? -1 : 1;
+		return (lhs->mesh < rhs->mesh) ? -1 : 1;
 
 	return 0;
 }
