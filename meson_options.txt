@@ -1,0 +1,8 @@
+option(
+  'render_backend',
+  type: 'combo',
+  choices: ['gl', 'vk'],
+  value: 'gl',
+  description: 'Render backend to build'
+)
+

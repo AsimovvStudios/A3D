@@ -1,45 +1,48 @@
-CC  ?= clang
-AR  ?= ar
-DBG ?= -DDEBUG
+.POSIX:
+SHELL = /bin/sh
 
-CFLAGS  = -std=c11 -Wall -Wextra $(DBG) -Iexternal -Iinclude
-CPPFLAGS= -DBACKEND_GL
-LDLIBS  = -lGL -lm -lcglm
+MESON = meson
+BUILD = build/gl
+BACKEND = gl
 
-PKG_CFLAGS := $(shell pkg-config --cflags sdl3)
-PKG_LIBS   := $(shell pkg-config --libs sdl3)
+.PHONY: all setup compile gl vk run clean distclean compile_flags
 
-SRC_ENGINE = $(wildcard src/*.c src/opengl/*.c) external/glad/gl.c
-SRC_TESTS  = $(wildcard tests/*.c)
+all: compile
 
-OBJ_ENGINE = $(patsubst %.c,build/obj/%.o,$(SRC_ENGINE))
-OBJ_TESTS  = $(patsubst %.c,build/obj/%.o,$(SRC_TESTS))
+setup:
+	@if [ ! -d "$(BUILD)" ]; then \
+		$(MESON) setup "$(BUILD)" -Drender_backend="$(BACKEND)"; \
+	else \
+		$(MESON) configure "$(BUILD)" -Drender_backend="$(BACKEND)"; \
+	fi
 
-BIN_ENGINE = build/liba3d.a
-BIN_TESTS  = build/a3d_test
+compile: setup
+	$(MESON) compile -C "$(BUILD)"
 
-all: $(BIN_ENGINE) $(BIN_TESTS)
+gl:
+	$(MAKE) compile BACKEND=gl BUILD=build/gl
 
-$(BIN_ENGINE): $(OBJ_ENGINE)
-	mkdir -p build
-	$(AR) rcs $(BIN_ENGINE) $(OBJ_ENGINE)
+vk:
+	$(MAKE) compile BACKEND=vk BUILD=build/vk
 
-$(BIN_TESTS): $(OBJ_TESTS) $(BIN_ENGINE)
-	mkdir -p build
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(OBJ_TESTS) $(BIN_ENGINE) -o $(BIN_TESTS) $(PKG_LIBS) $(LDLIBS)
-
-build/obj/%.o: %.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(PKG_CFLAGS) -c $< -o $@
+run: compile
+	"./$(BUILD)/a3d_test"
 
 clean:
-	rm -rf build/ shaders_gl/*.spv
+	@if [ -d "$(BUILD)" ]; then \
+		$(MESON) compile -C "$(BUILD)" --clean; \
+	fi
 
-compile_flags:
+distclean:
+	rm -rf build
+
+compile_flags: setup
 	@echo "generating compile_flags.txt"
-	@rm -f compile_flags.txt
-	@for flag in $(CFLAGS) $(CPPFLAGS) $(PKG_CFLAGS); do \
-		echo "$$flag" >> compile_flags.txt; \
-	done
-
-.PHONY: all compile_flags clean
+	@: > compile_flags.txt
+	@printf '%s\n' -std=c11 -Wall -Wextra -Iinclude -Iexternal -DDEBUG >> compile_flags.txt
+	@if [ "$(BACKEND)" = "vk" ]; then \
+		printf '%s\n' -DBACKEND_VK >> compile_flags.txt; \
+	else \
+		printf '%s\n' -DBACKEND_GL >> compile_flags.txt; \
+	fi
+	@pkg-config --cflags sdl3 cglm | tr ' ' '\n' >> compile_flags.txt
