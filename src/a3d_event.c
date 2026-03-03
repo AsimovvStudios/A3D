@@ -1,5 +1,6 @@
 #include "a3d.h"
 #include "a3d_event.h"
+#include "a3d_input.h"
 
 #include <SDL3/SDL.h>
 
@@ -15,6 +16,11 @@ bool a3d_event_add_handler(a3d* e, Uint32 type, a3d_event_handler fn)
 
 void a3d_event_handle(a3d* e, const SDL_Event* ev)
 {
+	if (!e || !ev)
+		return;
+
+	a3d_input_on_event(&e->input, ev);
+
 	for (Uint32 i = 0; i < e->handlers_count; i++) {
 		if (e->handlers[i].type == ev->type && e->handlers[i].fn)
 			e->handlers[i].fn(e, ev);

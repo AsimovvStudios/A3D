@@ -6,6 +6,7 @@
 
 #include "a3d_gfx.h"
 #include "a3d_handles.h"
+#include "a3d_input.h"
 #include "a3d_material.h"
 #include "a3d_texture.h"
 
@@ -38,6 +39,7 @@
 /* structures */
 typedef struct a3d a3d;
 typedef void (*a3d_event_handler)(a3d *engine, const SDL_Event *e);
+typedef void (*a3d_update_fn)(a3d* engine, void* user);
 typedef struct a3d_renderer a3d_renderer;
 typedef struct a3d_mesh a3d_mesh;
 typedef struct a3d_mvp a3d_mvp;
@@ -55,6 +57,7 @@ struct a3d {
 
 	/* loop */
 	SDL_Event   ev;
+	a3d_input   input;
 	a3d_handler_slot handlers[A3D_MAX_HANDLERS];
 	Uint32 handlers_count;
 
@@ -135,6 +138,7 @@ struct a3d {
 /* declarations */
 float a3d_dt(const a3d* e);
 void a3d_frame(a3d* e);
+void a3d_run(a3d* e, a3d_update_fn tick, void* user);
 void a3d_frame_begin(a3d* e);
 void a3d_frame_end(a3d* e);
 bool a3d_init(a3d* e, const char* title, int w, int h);
@@ -158,4 +162,3 @@ bool a3d_draw_instanced(
 a3d_assets* a3d_get_assets(a3d* e);
 const a3d_assets* a3d_get_assets_const(const a3d* e);
 void a3d_wait_idle(a3d* e);
-

@@ -7,6 +7,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "a3d.h"
+#include "a3d_assets.h"
 #include "a3d_gfx.h"
 #define A3D_LOG_TAG "VK"
 #include "a3d_logging.h"
@@ -1158,15 +1159,15 @@ bool a3d_vk_record_command_buffer(a3d* e, Uint32 i, VkClearValue clear)
 	Uint32 item_count = 0;
 	a3d_renderer_get_draw_items(e->renderer, &items, &item_count);
 	for (Uint32 j = 0; j < item_count; j++) {
-		const a3d_mesh* mesh = items[j].mesh;
-		const a3d_mvp* mvp = &items[j].mvp;
+		const a3d_draw_item* it = &items[j];
+		const a3d_mesh* mesh = a3d_assets_get_mesh(e->assets, it->mesh);
 		mat4 mvp_mat;
-		a3d_mvp_compose(mvp_mat, mvp);
+		if (!mesh)
+			continue;
 
+		a3d_mvp_compose(mvp_mat, &it->mvp);
 		vkCmdPushConstants(*cmd, e->vk.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4), mvp_mat);
-
-		if (mesh && mvp)
-			a3d_vk_draw_mesh(e, mesh, cmd);
+		a3d_vk_draw_mesh(e, mesh, cmd);
 	}
 
 	vkCmdEndRenderPass(e->vk.cmd_buffs[i]);

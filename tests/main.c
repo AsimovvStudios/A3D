@@ -1,69 +1,73 @@
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
-#include <cglm/cglm.h>
 #include <SDL3/SDL.h>
 
 #include "a3d.h"
 #include "a3d_camera.h"
-#include "a3d_event.h"
+#include "a3d_flycam.h"
 #define A3D_LOG_TAG "TEST"
 #include "a3d_logging.h"
 #include "a3d_map.h"
 
-static void on_key_down(a3d* engine, const SDL_Event* ev);
-static void update_camera(a3d* engine, a3d_camera* cam);
+typedef struct a3d_test_prog {
+	a3d_backend backend;
+	a3d_map map;
+	a3d_camera camera;
+	float aspect;
+	int prev_w;
+	int prev_h;
+} a3d_test_prog;
 
-static void on_key_down(a3d* engine, const SDL_Event* ev)
+static void a3d_test_update_projection(a3d* engine, a3d_test_prog* app)
 {
-	if (!engine || !ev)
+	if (!engine || !app)
 		return;
 
-	if (ev->key.key == SDLK_ESCAPE)
-		engine->running = false;
+	int width = 0;
+	int height = 0;
+	SDL_GetWindowSizeInPixels(engine->window, &width, &height);
+	if (width <= 0 || height <= 0)
+		return;
+
+	if (width == app->prev_w && height == app->prev_h)
+		return;
+
+	app->prev_w = width;
+	app->prev_h = height;
+	app->aspect = (float)width / (float)height;
+	a3d_camera_set_perspective(&app->camera, app->aspect, app->backend);
 }
 
-static void update_camera(a3d* engine, a3d_camera* cam)
+static void a3d_test_tick(a3d* engine, void* user)
 {
-	const bool* keys = SDL_GetKeyboardState(NULL);
-	float dt = a3d_dt(engine);
-	float speed = 3.5f;
-	float move = speed * dt;
-	float forward = 0.0f;
-	float right = 0.0f;
-	float up = 0.0f;
+	if (!engine || !user)
+		return;
 
-	if (keys[SDL_SCANCODE_W])
-		forward += move;
-	if (keys[SDL_SCANCODE_S])
-		forward -= move;
-	if (keys[SDL_SCANCODE_D])
-		right += move;
-	if (keys[SDL_SCANCODE_A])
-		right -= move;
-	if (keys[SDL_SCANCODE_E])
-		up += move;
-	if (keys[SDL_SCANCODE_Q])
-		up -= move;
+	a3d_test_prog* app = user;
 
-	a3d_camera_move_local(cam, forward, right, up);
+	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_ESCAPE)) {
+		engine->running = false;
+		return;
+	}
 
-	float look = 1.8f * dt;
-	if (keys[SDL_SCANCODE_LEFT])
-		cam->yaw -= look;
-	if (keys[SDL_SCANCODE_RIGHT])
-		cam->yaw += look;
-	if (keys[SDL_SCANCODE_UP])
-		cam->pitch += look;
-	if (keys[SDL_SCANCODE_DOWN])
-		cam->pitch -= look;
+	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_TAB)) {
+		bool lock_mouse = !engine->input.mouse_locked;
+		if (SDL_SetWindowRelativeMouseMode(engine->window, lock_mouse))
+			engine->input.mouse_locked = lock_mouse;
+		else
+			A3D_LOG_WARN(
+				"failed to %s mouse lock: %s",
+				lock_mouse ? "enable" : "disable",
+				SDL_GetError()
+			);
+	}
 
-	if (cam->pitch > 1.55f)
-		cam->pitch = 1.55f;
-	if (cam->pitch < -1.55f)
-		cam->pitch = -1.55f;
-
-	a3d_camera_rebuild_view(cam);
+	a3d_flycam_update(&app->camera, &engine->input, a3d_dt(engine));
+	a3d_test_update_projection(engine, app);
+	a3d_map_reload_if_changed(engine, &app->map);
+	a3d_map_submit(engine, &app->map, app->camera.view, app->camera.proj);
 }
 
 int main(int argc, char** argv)
@@ -78,54 +82,39 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	a3d_event_add_handler(&engine, SDL_EVENT_KEY_DOWN, on_key_down);
-
-	a3d_map map;
-	a3d_map_init(&map);
-	if (!a3d_map_load(&engine, &map, "assets/scene.a3dmap")) {
+	a3d_test_prog app;
+	memset(&app, 0, sizeof(app));
+	app.backend = backend;
+	a3d_map_init(&app.map);
+	if (!a3d_map_load(&engine, &app.map, "assets/scene.a3dmap")) {
 		A3D_LOG_ERROR("failed to load assets/scene.a3dmap");
 		a3d_quit(&engine);
 		return EXIT_FAILURE;
 	}
 
-	a3d_camera camera;
-	a3d_camera_init(&camera);
+	a3d_camera_init(&app.camera);
 
 	int width = 0;
 	int height = 0;
 	SDL_GetWindowSizeInPixels(engine.window, &width, &height);
-	float aspect = (width > 0 && height > 0) ? (float)width / (float)height : 16.0f / 9.0f;
-	a3d_camera_set_perspective(&camera, aspect, backend);
-	a3d_camera_rebuild_view(&camera);
+	app.aspect = (width > 0 && height > 0) ? (float)width / (float)height : 16.0f / 9.0f;
+	app.prev_w = width;
+	app.prev_h = height;
+	a3d_camera_set_perspective(&app.camera, app.aspect, backend);
+	a3d_camera_rebuild_view(&app.camera);
 
-	int prev_w = width;
-	int prev_h = height;
+	if (SDL_SetWindowRelativeMouseMode(engine.window, true))
+		engine.input.mouse_locked = true;
+	else
+		A3D_LOG_WARN("failed to enable mouse lock: %s", SDL_GetError());
 
-	while (engine.running) {
-		update_camera(&engine, &camera);
+	a3d_run(&engine, a3d_test_tick, &app);
 
-		a3d_map_reload_if_changed(&engine, &map);
-
-		a3d_frame_begin(&engine);
-		a3d_map_submit(&engine, &map, camera.view, camera.proj);
-		a3d_frame_end(&engine);
-		a3d_frame(&engine);
-
-		int nw = 0;
-		int nh = 0;
-		SDL_GetWindowSizeInPixels(engine.window, &nw, &nh);
-		if (nw != prev_w || nh != prev_h) {
-			prev_w = nw;
-			prev_h = nh;
-			aspect = (nw > 0 && nh > 0) ? (float)nw / (float)nh : aspect;
-			a3d_camera_set_perspective(&camera, aspect, backend);
-		}
-
-		SDL_Delay(1);
-	}
+	if (engine.input.mouse_locked)
+		(void)SDL_SetWindowRelativeMouseMode(engine.window, false);
 
 	a3d_wait_idle(&engine);
-	a3d_map_clear(&engine, &map);
+	a3d_map_clear(&engine, &app.map);
 	a3d_quit(&engine);
 	return EXIT_SUCCESS;
 }

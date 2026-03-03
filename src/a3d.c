@@ -104,6 +104,48 @@ static void a3d_resolve_material_keys(
 		*out_texture = texture;
 }
 
+static void a3d_update_timing(a3d* e)
+{
+	if (!e)
+		return;
+
+	if (e->last_ticks) {
+		Uint64 now = SDL_GetTicksNS();
+		Uint64 delta = now - e->last_ticks;
+		/* ns->seconds */
+		e->dt = (float)delta / 1e9f;
+		/* clamp extreme spikes */
+		if (e->dt > 0.1f)
+			e->dt = 0.1f;
+		e->last_ticks = now;
+	}
+	else {
+		e->dt = 0.0f;
+		e->last_ticks = SDL_GetTicksNS();
+	}
+}
+
+static bool a3d_prepare_frame(a3d* e)
+{
+	if (!e)
+		return false;
+
+	/* clear per-frame input transitions before polling new events */
+	a3d_input_begin_frame(&e->input);
+	a3d_event_pump(e);
+
+	if (!e->running)
+		return false;
+
+	if (e->fb_resized) {
+		if (e->gfx.v && e->gfx.v->recreate_or_resize)
+			e->gfx.v->recreate_or_resize(e);
+		e->fb_resized = false;
+	}
+
+	return true;
+}
+
 float a3d_dt(const a3d* e)
 {
 	if (!e)
@@ -116,37 +158,38 @@ void a3d_frame(a3d* e)
 	if (!e)
 		return;
 
-	/* timing */
-	if (e->last_ticks) {
-		Uint64 now = SDL_GetTicksNS();
-		Uint64 delta = now - e->last_ticks;
-		/* ns->seconds */
-		e->dt = (float)delta / 1e9f;
-		/* clamping avoids jumps */
-		if (e->dt > 0.1f) e->dt = 0.1f;
-		e->last_ticks = now;
-	}
-	else {
-		e->dt = 0.0f;
-		e->last_ticks = SDL_GetTicksNS();
-	}
-
-	/* input */
-	a3d_event_pump(e);
-
-	if (!e->running)
+	a3d_update_timing(e);
+	if (!a3d_prepare_frame(e))
 		return;
-
-	/* handle resize */
-	if (e->fb_resized) {
-		if (e->gfx.v && e->gfx.v->recreate_or_resize)
-			e->gfx.v->recreate_or_resize(e);
-		e->fb_resized = false;
-	}
 
 	/* render */
 	if (e->gfx.v && e->gfx.v->draw_frame)
 		e->gfx.v->draw_frame(e);
+}
+
+void a3d_run(a3d* e, a3d_update_fn tick, void* user)
+{
+	if (!e) {
+		A3D_LOG_ERROR("a3d_run: engine is NULL");
+		return;
+	}
+
+	while (e->running) {
+		a3d_update_timing(e);
+		if (!a3d_prepare_frame(e))
+			continue;
+
+		a3d_frame_begin(e);
+		if (tick)
+			tick(e, user);
+		a3d_frame_end(e);
+
+		if (!e->running)
+			continue;
+
+		if (e->gfx.v && e->gfx.v->draw_frame)
+			e->gfx.v->draw_frame(e);
+	}
 }
 
 void a3d_frame_begin(a3d* e)
@@ -188,6 +231,7 @@ bool a3d_init_backend(a3d* e, a3d_backend backend, const char* title, int width,
 {
 	/* zero engine */
 	memset(e, 0, sizeof(*e));
+	a3d_input_init(&e->input);
 
 	e->backend = backend;
 

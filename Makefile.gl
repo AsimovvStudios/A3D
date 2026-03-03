@@ -1,18 +1,36 @@
 CC  ?= clang
+AR  ?= ar
 DBG ?= -DDEBUG
 
 CFLAGS  = -std=c11 -Wall -Wextra -g -O0 $(DBG) -Iexternal -Iinclude
 CPPFLAGS= -DBACKEND_GL
 LDLIBS  = -lGL -lm -lcglm
 
-SRC = src/*.c src/opengl/*.c external/glad/gl.c tests/*.c
-BIN = build/a3d_test
+PKG_CFLAGS := $(shell pkg-config --cflags sdl3)
+PKG_LIBS   := $(shell pkg-config --libs sdl3)
 
-all: $(BIN)
+SRC_ENGINE = $(wildcard src/*.c src/opengl/*.c) external/glad/gl.c
+SRC_TESTS  = $(wildcard tests/*.c)
 
-$(BIN):
+OBJ_ENGINE = $(patsubst %.c,build/obj/%.o,$(SRC_ENGINE))
+OBJ_TESTS  = $(patsubst %.c,build/obj/%.o,$(SRC_TESTS))
+
+BIN_ENGINE = build/liba3d.a
+BIN_TESTS  = build/a3d_test
+
+all: $(BIN_ENGINE) $(BIN_TESTS)
+
+$(BIN_ENGINE): $(OBJ_ENGINE)
 	mkdir -p build
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(SRC) -o $(BIN) `pkg-config --cflags --libs sdl3` $(LDLIBS)
+	$(AR) rcs $(BIN_ENGINE) $(OBJ_ENGINE)
+
+$(BIN_TESTS): $(OBJ_TESTS) $(BIN_ENGINE)
+	mkdir -p build
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(OBJ_TESTS) $(BIN_ENGINE) -o $(BIN_TESTS) $(PKG_LIBS) $(LDLIBS)
+
+build/obj/%.o: %.c
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(PKG_CFLAGS) -c $< -o $@
 
 clean:
 	rm -rf build/ shaders_gl/*.spv
@@ -20,7 +38,7 @@ clean:
 compile_flags:
 	@echo "generating compile_flags.txt"
 	@rm -f compile_flags.txt
-	@for flag in $(CFLAGS) $(CPPFLAGS) `pkg-config --cflags sdl3`; do \
+	@for flag in $(CFLAGS) $(CPPFLAGS) $(PKG_CFLAGS); do \
 		echo "$$flag" >> compile_flags.txt; \
 	done
 

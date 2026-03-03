@@ -537,6 +537,12 @@ static bool a3d_map_get_file_mtime_ns(const char* path, Uint64* out_mtime_ns)
 
 #if defined(__APPLE__)
 	*out_mtime_ns = (Uint64)st.st_mtimespec.tv_sec * 1000000000ull + (Uint64)st.st_mtimespec.tv_nsec;
+#elif defined(__linux__)
+#if defined(__USE_XOPEN2K8)
+	*out_mtime_ns = (Uint64)st.st_mtim.tv_sec * 1000000000ull + (Uint64)st.st_mtim.tv_nsec;
+#else
+	*out_mtime_ns = (Uint64)st.st_mtime * 1000000000ull + (Uint64)st.st_mtimensec;
+#endif
 #elif defined(_WIN32)
 	*out_mtime_ns = (Uint64)st.st_mtime * 1000000000ull;
 #else
