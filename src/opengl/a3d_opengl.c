@@ -21,12 +21,7 @@
 static unsigned int a3d_gl_create_fallback_program(void);
 static unsigned int a3d_gl_select_program(a3d* e, a3d_shader_handle shader);
 static void a3d_gl_get_uniform_locations(
-	const a3d* e,
-	unsigned int program,
-	int* u_mvp,
-	int* u_albedo,
-	int* u_tint,
-	int* u_use_instance_mvp
+    const a3d* e, unsigned int program, int* u_mvp, int* u_albedo, int* u_tint, int* u_use_instance_mvp
 );
 
 void a3d_gl_destroy_mesh(a3d* e, a3d_mesh* mesh)
@@ -35,25 +30,34 @@ void a3d_gl_destroy_mesh(a3d* e, a3d_mesh* mesh)
 	if (!mesh)
 		return;
 
-	A3D_LOG_INFO("destroying mesh: vao=%u vbo=%u ebo=%u instance=%u",
-		mesh->gpu.gl.vao, mesh->gpu.gl.vbo, mesh->gpu.gl.ebo, mesh->gpu.gl.instance_vbo);
+	A3D_LOG_INFO(
+	    "destroying mesh: vao=%u vbo=%u ebo=%u instance=%u",
+	    mesh->gpu.gl.vao,
+	    mesh->gpu.gl.vbo,
+	    mesh->gpu.gl.ebo,
+	    mesh->gpu.gl.instance_vbo
+	);
 
-	if (mesh->gpu.gl.ebo) {
+	if (mesh->gpu.gl.ebo)
+	{
 		glDeleteBuffers(1, &mesh->gpu.gl.ebo);
 		mesh->gpu.gl.ebo = 0;
 	}
 
-	if (mesh->gpu.gl.vbo) {
+	if (mesh->gpu.gl.vbo)
+	{
 		glDeleteBuffers(1, &mesh->gpu.gl.vbo);
 		mesh->gpu.gl.vbo = 0;
 	}
 
-	if (mesh->gpu.gl.vao) {
+	if (mesh->gpu.gl.vao)
+	{
 		glDeleteVertexArrays(1, &mesh->gpu.gl.vao);
 		mesh->gpu.gl.vao = 0;
 	}
 
-	if (mesh->gpu.gl.instance_vbo) {
+	if (mesh->gpu.gl.instance_vbo)
+	{
 		glDeleteBuffers(1, &mesh->gpu.gl.instance_vbo);
 		mesh->gpu.gl.instance_vbo = 0;
 	}
@@ -66,7 +70,8 @@ void a3d_gl_destroy_mesh(a3d* e, a3d_mesh* mesh)
 
 bool a3d_gl_draw_frame(a3d* e)
 {
-	if (!e || !e->renderer || !e->assets) {
+	if (!e || !e->renderer || !e->assets)
+	{
 		A3D_LOG_ERROR("a3d_gl_draw_frame: invalid engine state");
 		return false;
 	}
@@ -78,12 +83,7 @@ bool a3d_gl_draw_frame(a3d* e)
 	glCullFace(GL_BACK);
 
 	/* clear buffers */
-	glClearColor(
-		e->gl.clear_colour[0],
-		e->gl.clear_colour[1],
-		e->gl.clear_colour[2],
-		e->gl.clear_colour[3]
-	);
+	glClearColor(e->gl.clear_colour[0], e->gl.clear_colour[1], e->gl.clear_colour[2], e->gl.clear_colour[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	/* get draw items from renderer */
@@ -100,7 +100,8 @@ bool a3d_gl_draw_frame(a3d* e)
 	int u_use_instance_mvp = -1;
 
 	/* draw each item */
-	for (Uint32 i = 0; i < item_count; i++) {
+	for (Uint32 i = 0; i < item_count; i++)
+	{
 		const a3d_mesh* mesh = a3d_assets_get_mesh(e->assets, items[i].mesh);
 		a3d_material_handle material_handle = items[i].material;
 		if (material_handle == A3D_ASSET_INVALID_HANDLE)
@@ -111,7 +112,8 @@ bool a3d_gl_draw_frame(a3d* e)
 
 		a3d_shader_handle shader_handle = items[i].sort_shader;
 		a3d_texture_handle texture_handle = items[i].sort_texture;
-		if (material) {
+		if (material)
+		{
 			if (shader_handle == A3D_ASSET_INVALID_HANDLE)
 				shader_handle = material->shader;
 			if (texture_handle == A3D_ASSET_INVALID_HANDLE)
@@ -136,29 +138,25 @@ bool a3d_gl_draw_frame(a3d* e)
 		if (texture_id == 0)
 			continue;
 
-		if (bound_program != program) {
+		if (bound_program != program)
+		{
 			glUseProgram(program);
 			bound_program = program;
-			a3d_gl_get_uniform_locations(
-				e,
-				program,
-				&u_mvp,
-				&u_albedo,
-				&u_tint,
-				&u_use_instance_mvp
-			);
+			a3d_gl_get_uniform_locations(e, program, &u_mvp, &u_albedo, &u_tint, &u_use_instance_mvp);
 			if (u_albedo >= 0)
 				glUniform1i(u_albedo, 0);
 		}
 
-		if (material) {
+		if (material)
+		{
 			tint[0] = material->tint[0];
 			tint[1] = material->tint[1];
 			tint[2] = material->tint[2];
 			tint[3] = material->tint[3];
 		}
 
-		if (bound_texture != texture_id) {
+		if (bound_texture != texture_id)
+		{
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, texture_id);
 			bound_texture = texture_id;
@@ -167,14 +165,18 @@ bool a3d_gl_draw_frame(a3d* e)
 		if (u_tint >= 0)
 			glUniform4fv(u_tint, 1, tint);
 
-		if (bound_vao != mesh->gpu.gl.vao) {
+		if (bound_vao != mesh->gpu.gl.vao)
+		{
 			glBindVertexArray(mesh->gpu.gl.vao);
 			bound_vao = mesh->gpu.gl.vao;
 		}
-		if (items[i].instance_count > 0) {
+		if (items[i].instance_count > 0)
+		{
 			const mat4* instance_mvps = &e->renderer->instance_mvp_pool[items[i].instance_offset];
-			if (u_use_instance_mvp >= 0) {
-				if (!mesh->gpu.gl.instance_vbo) {
+			if (u_use_instance_mvp >= 0)
+			{
+				if (!mesh->gpu.gl.instance_vbo)
+				{
 					A3D_LOG_ERROR("mesh has no instance buffer");
 					continue;
 				}
@@ -182,31 +184,28 @@ bool a3d_gl_draw_frame(a3d* e)
 				glUniform1i(u_use_instance_mvp, 1);
 				glBindBuffer(GL_ARRAY_BUFFER, mesh->gpu.gl.instance_vbo);
 				glBufferData(
-					GL_ARRAY_BUFFER,
-					(GLsizeiptr)(sizeof(mat4) * items[i].instance_count),
-					instance_mvps,
-					GL_STREAM_DRAW
+				    GL_ARRAY_BUFFER, (GLsizeiptr)(sizeof(mat4) * items[i].instance_count), instance_mvps, GL_STREAM_DRAW
 				);
 				glDrawElementsInstanced(
-					GL_TRIANGLES,
-					(GLsizei)mesh->index_count,
-					GL_UNSIGNED_INT,
-					NULL,
-					(GLsizei)items[i].instance_count
+				    GL_TRIANGLES, (GLsizei)mesh->index_count, GL_UNSIGNED_INT, NULL, (GLsizei)items[i].instance_count
 				);
 			}
-			else {
-				if (u_mvp < 0) {
+			else
+			{
+				if (u_mvp < 0)
+				{
 					A3D_LOG_WARN("instanced draw skipped: shader has no u_mvp or u_use_instance_mvp");
 					continue;
 				}
-				for (Uint32 j = 0; j < items[i].instance_count; j++) {
+				for (Uint32 j = 0; j < items[i].instance_count; j++)
+				{
 					glUniformMatrix4fv(u_mvp, 1, GL_FALSE, (const GLfloat*)instance_mvps[j]);
 					glDrawElements(GL_TRIANGLES, (GLsizei)mesh->index_count, GL_UNSIGNED_INT, NULL);
 				}
 			}
 		}
-		else {
+		else
+		{
 			mat4 mvp_mat;
 			a3d_mvp_compose(mvp_mat, &items[i].mvp);
 			if (u_use_instance_mvp >= 0)
@@ -233,17 +232,18 @@ bool a3d_gl_init(a3d* e)
 {
 	A3D_LOG_INFO("initialising OpenGL backend");
 
-
 	/* create OpenGL context */
 	SDL_GLContext glctx = SDL_GL_CreateContext(e->window);
-	if (!glctx) {
+	if (!glctx)
+	{
 		A3D_LOG_ERROR("failed to create OpenGL context: %s", SDL_GetError());
 		return false;
 	}
 	e->gl.context = glctx;
 
 	/* make context current */
-	if (!SDL_GL_MakeCurrent(e->window, glctx)) {
+	if (!SDL_GL_MakeCurrent(e->window, glctx))
+	{
 		A3D_LOG_ERROR("failed to make OpenGL context current: %s", SDL_GetError());
 		SDL_GL_DestroyContext(glctx);
 		e->gl.context = NULL;
@@ -254,7 +254,8 @@ bool a3d_gl_init(a3d* e)
 	SDL_GL_SetSwapInterval(1);
 
 	/* load OpenGL functions */
-	if (!gladLoaderLoadGL()) {
+	if (!gladLoaderLoadGL())
+	{
 		A3D_LOG_ERROR("failed to load OpenGL functions via glad");
 		SDL_GL_DestroyContext(glctx);
 		e->gl.context = NULL;
@@ -267,7 +268,8 @@ bool a3d_gl_init(a3d* e)
 	glGetIntegerv(GL_MINOR_VERSION, &minor);
 	A3D_LOG_INFO("OpenGL version: %d.%d", major, minor);
 
-	if (major < 3 || (major == 3 && minor < 3)) {
+	if (major < 3 || (major == 3 && minor < 3))
+	{
 		A3D_LOG_ERROR("OpenGL 3.3 or higher required, got %d.%d", major, minor);
 		SDL_GL_DestroyContext(glctx);
 		e->gl.context = NULL;
@@ -288,14 +290,13 @@ bool a3d_gl_init(a3d* e)
 	e->gl.clear_colour[3] = 1.0f;
 
 	/* create shader program */
-	e->gl.program = a3d_gl_create_program_from_files(
-		"shaders_gl/triangle.vert",
-		"shaders_gl/triangle.frag"
-	);
-	if (e->gl.program == 0) {
+	e->gl.program = a3d_gl_create_program_from_files("shaders_gl/triangle.vert", "shaders_gl/triangle.frag");
+	if (e->gl.program == 0)
+	{
 		A3D_LOG_WARN("shader files missing/invalid, using (embedded) fallback shader");
 		e->gl.program = a3d_gl_create_fallback_program();
-		if (e->gl.program == 0) {
+		if (e->gl.program == 0)
+		{
 			A3D_LOG_ERROR("failed to create fallback shader program");
 			SDL_GL_DestroyContext(glctx);
 			e->gl.context = NULL;
@@ -305,7 +306,8 @@ bool a3d_gl_init(a3d* e)
 
 	/* get uniform location */
 	e->gl.u_mvp_location = glGetUniformLocation(e->gl.program, "u_mvp");
-	if (e->gl.u_mvp_location < 0) {
+	if (e->gl.u_mvp_location < 0)
+	{
 		A3D_LOG_WARN("u_mvp uniform not found in shader");
 	}
 
@@ -346,9 +348,9 @@ bool a3d_gl_init_triangle(a3d* e, a3d_mesh* mesh)
 	A3D_LOG_INFO("creating triangle mesh (OpenGL)");
 
 	a3d_vertex vertices[] = {
-		{{ 0.0f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.5f, 1.0f}},
-		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-		{{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+	    {{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.5f, 1.0f}},
+	    {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+	    {{0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
 	};
 
 	a3d_index indices[] = {0, 1, 2};
@@ -356,13 +358,18 @@ bool a3d_gl_init_triangle(a3d* e, a3d_mesh* mesh)
 	return a3d_mesh_upload(e, mesh, vertices, 3, indices, 3, A3D_TOPO_TRIANGLES);
 }
 
-bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
-	const a3d_vertex* vertices, Uint32 vertex_count,
-	const a3d_index* indices, Uint32 index_count,
-	a3d_topology topology
+bool a3d_gl_mesh_upload(
+    a3d* e,
+    a3d_mesh* mesh,
+    const a3d_vertex* vertices,
+    Uint32 vertex_count,
+    const a3d_index* indices,
+    Uint32 index_count,
+    a3d_topology topology
 )
 {
-	if (!e || !mesh || !vertices || vertex_count == 0 || !indices || index_count == 0) {
+	if (!e || !mesh || !vertices || vertex_count == 0 || !indices || index_count == 0)
+	{
 		A3D_LOG_ERROR("a3d_gl_mesh_upload: invalid parameters");
 		return false;
 	}
@@ -378,7 +385,8 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 
 	/* create VAO */
 	glGenVertexArrays(1, &mesh->gpu.gl.vao);
-	if (!mesh->gpu.gl.vao) {
+	if (!mesh->gpu.gl.vao)
+	{
 		A3D_LOG_ERROR("failed to create VAO");
 		return false;
 	}
@@ -386,7 +394,8 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 
 	/* create VBO */
 	glGenBuffers(1, &mesh->gpu.gl.vbo);
-	if (!mesh->gpu.gl.vbo) {
+	if (!mesh->gpu.gl.vbo)
+	{
 		A3D_LOG_ERROR("failed to create VBO");
 		a3d_gl_destroy_mesh(e, mesh);
 		return false;
@@ -396,7 +405,8 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 
 	/* create EBO */
 	glGenBuffers(1, &mesh->gpu.gl.ebo);
-	if (!mesh->gpu.gl.ebo) {
+	if (!mesh->gpu.gl.ebo)
+	{
 		A3D_LOG_ERROR("failed to create EBO");
 		a3d_gl_destroy_mesh(e, mesh);
 		return false;
@@ -406,37 +416,17 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 
 	/* set up vertex attributes */
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(
-		0,
-		3,
-		GL_FLOAT,
-		GL_FALSE,
-		sizeof(a3d_vertex),
-		(void*)offsetof(a3d_vertex, position)
-	);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(a3d_vertex), (void*)offsetof(a3d_vertex, position));
 
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(
-		1,
-		3,
-		GL_FLOAT,
-		GL_FALSE,
-		sizeof(a3d_vertex),
-		(void*)offsetof(a3d_vertex, normal)
-	);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(a3d_vertex), (void*)offsetof(a3d_vertex, normal));
 
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(
-		2,
-		2,
-		GL_FLOAT,
-		GL_FALSE,
-		sizeof(a3d_vertex),
-		(void*)offsetof(a3d_vertex, uv)
-	);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(a3d_vertex), (void*)offsetof(a3d_vertex, uv));
 
 	glGenBuffers(1, &mesh->gpu.gl.instance_vbo);
-	if (!mesh->gpu.gl.instance_vbo) {
+	if (!mesh->gpu.gl.instance_vbo)
+	{
 		A3D_LOG_ERROR("failed to create instance VBO");
 		a3d_gl_destroy_mesh(e, mesh);
 		return false;
@@ -444,17 +434,11 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->gpu.gl.instance_vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(mat4), NULL, GL_STREAM_DRAW);
 
-	for (unsigned int col = 0; col < 4; col++) {
+	for (unsigned int col = 0; col < 4; col++)
+	{
 		unsigned int attrib = 3 + col;
 		glEnableVertexAttribArray(attrib);
-		glVertexAttribPointer(
-			attrib,
-			4,
-			GL_FLOAT,
-			GL_FALSE,
-			sizeof(mat4),
-			(void*)(sizeof(float) * 4u * col)
-		);
+		glVertexAttribPointer(attrib, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)(sizeof(float) * 4u * col));
 		glVertexAttribDivisor(attrib, 1);
 	}
 
@@ -462,8 +446,12 @@ bool a3d_gl_mesh_upload(a3d* e, a3d_mesh* mesh,
 	glBindVertexArray(0);
 
 	A3D_LOG_INFO(
-		"uploaded mesh (OpenGL): verts=%u indices=%u vao=%u vbo=%u ebo=%u",
-		mesh->vertex_count, mesh->index_count, mesh->gpu.gl.vao, mesh->gpu.gl.vbo, mesh->gpu.gl.ebo
+	    "uploaded mesh (OpenGL): verts=%u indices=%u vao=%u vbo=%u ebo=%u",
+	    mesh->vertex_count,
+	    mesh->index_count,
+	    mesh->gpu.gl.vao,
+	    mesh->gpu.gl.vbo,
+	    mesh->gpu.gl.ebo
 	);
 
 	return true;
@@ -500,7 +488,8 @@ bool a3d_gl_resize(a3d* e)
 	int w, h;
 	SDL_GetWindowSizeInPixels(e->window, &w, &h);
 
-	if (w == 0 || h == 0) {
+	if (w == 0 || h == 0)
+	{
 		A3D_LOG_WARN("window minimised, skipping resize");
 		return false;
 	}
@@ -522,12 +511,14 @@ void a3d_gl_shutdown(a3d* e)
 {
 	A3D_LOG_INFO("shutting down OpenGL backend");
 
-	if (e->gl.program) {
+	if (e->gl.program)
+	{
 		glDeleteProgram(e->gl.program);
 		e->gl.program = 0;
 	}
 
-	if (e->gl.context) {
+	if (e->gl.context)
+	{
 		SDL_GL_DestroyContext((SDL_GLContext)e->gl.context);
 		e->gl.context = NULL;
 	}
@@ -543,38 +534,37 @@ void a3d_gl_wait_idle(a3d* e)
 
 static unsigned int a3d_gl_create_fallback_program(void)
 {
-	static const char* fallback_vert =
-		"#version 330 core\n"
-		"layout(location = 0) in vec3 in_pos;\n"
-		"layout(location = 2) in vec2 in_uv;\n"
-		"layout(location = 3) in mat4 in_instance_mvp;\n"
-		"layout(location = 7) in vec4 in_color;\n"
-		"out vec2 v_uv;\n"
-		"out vec4 v_color;\n"
-		"uniform mat4 u_mvp;\n"
-		"uniform int u_use_instance_mvp;\n"
-		"void main() {\n"
-		"  mat4 draw_mvp = (u_use_instance_mvp != 0) ? in_instance_mvp : u_mvp;\n"
-		"  gl_Position = draw_mvp * vec4(in_pos, 1.0);\n"
-		"  v_uv = in_uv;\n"
-		"  v_color = in_color;\n"
-		"}\n";
-	static const char* fallback_frag =
-		"#version 330 core\n"
-		"in vec2 v_uv;\n"
-		"in vec4 v_color;\n"
-		"out vec4 out_colour;\n"
-		"uniform sampler2D u_albedo;\n"
-		"uniform vec4 u_tint;\n"
-		"void main() {\n"
-		"  out_colour = texture(u_albedo, v_uv) * u_tint * v_color;\n"
-		"}\n";
+	static const char* fallback_vert = "#version 330 core\n"
+	                                   "layout(location = 0) in vec3 in_pos;\n"
+	                                   "layout(location = 2) in vec2 in_uv;\n"
+	                                   "layout(location = 3) in mat4 in_instance_mvp;\n"
+	                                   "layout(location = 7) in vec4 in_color;\n"
+	                                   "out vec2 v_uv;\n"
+	                                   "out vec4 v_color;\n"
+	                                   "uniform mat4 u_mvp;\n"
+	                                   "uniform int u_use_instance_mvp;\n"
+	                                   "void main() {\n"
+	                                   "  mat4 draw_mvp = (u_use_instance_mvp != 0) ? in_instance_mvp : u_mvp;\n"
+	                                   "  gl_Position = draw_mvp * vec4(in_pos, 1.0);\n"
+	                                   "  v_uv = in_uv;\n"
+	                                   "  v_color = in_color;\n"
+	                                   "}\n";
+	static const char* fallback_frag = "#version 330 core\n"
+	                                   "in vec2 v_uv;\n"
+	                                   "in vec4 v_color;\n"
+	                                   "out vec4 out_colour;\n"
+	                                   "uniform sampler2D u_albedo;\n"
+	                                   "uniform vec4 u_tint;\n"
+	                                   "void main() {\n"
+	                                   "  out_colour = texture(u_albedo, v_uv) * u_tint * v_color;\n"
+	                                   "}\n";
 
 	unsigned int vert = a3d_gl_compile_shader(fallback_vert, GL_VERTEX_SHADER);
 	if (!vert)
 		return 0;
 	unsigned int frag = a3d_gl_compile_shader(fallback_frag, GL_FRAGMENT_SHADER);
-	if (!frag) {
+	if (!frag)
+	{
 		glDeleteShader(vert);
 		return 0;
 	}
@@ -593,7 +583,8 @@ static unsigned int a3d_gl_select_program(a3d* e, a3d_shader_handle shader)
 	if (!program)
 		program = e->gl.program;
 
-	if (!program || !glIsProgram(program)) {
+	if (!program || !glIsProgram(program))
+	{
 		A3D_LOG_WARN("material shader is invalid; using default shader");
 		program = e->gl.program;
 	}
@@ -602,18 +593,14 @@ static unsigned int a3d_gl_select_program(a3d* e, a3d_shader_handle shader)
 }
 
 static void a3d_gl_get_uniform_locations(
-	const a3d* e,
-	unsigned int program,
-	int* u_mvp,
-	int* u_albedo,
-	int* u_tint,
-	int* u_use_instance_mvp
+    const a3d* e, unsigned int program, int* u_mvp, int* u_albedo, int* u_tint, int* u_use_instance_mvp
 )
 {
 	if (!u_mvp || !u_albedo || !u_tint || !u_use_instance_mvp)
 		return;
 
-	if (program == e->gl.program) {
+	if (program == e->gl.program)
+	{
 		*u_mvp = e->gl.u_mvp_location;
 		*u_albedo = e->gl.u_albedo_location;
 		*u_tint = e->gl.u_tint_location;
@@ -629,16 +616,15 @@ static void a3d_gl_get_uniform_locations(
 
 const a3d_gfx_vtbl a3d_gl_vtbl = {
     .pre_window = a3d_gl_pre_window,
-	.init = a3d_gl_init,
-	.shutdown = a3d_gl_shutdown,
-	.draw_frame = a3d_gl_draw_frame,
-	.recreate_or_resize = a3d_gl_resize,
-	.set_clear_colour = a3d_gl_set_clear_colour,
-	.wait_idle = a3d_gl_wait_idle,
-	.texture_load = a3d_gl_texture_load,
-	.texture_destroy = a3d_gl_texture_destroy,
-	.mesh_upload = a3d_gl_mesh_upload,
-	.mesh_init_triangle = a3d_gl_init_triangle,
-	.mesh_destroy = a3d_gl_destroy_mesh
+    .init = a3d_gl_init,
+    .shutdown = a3d_gl_shutdown,
+    .draw_frame = a3d_gl_draw_frame,
+    .recreate_or_resize = a3d_gl_resize,
+    .set_clear_colour = a3d_gl_set_clear_colour,
+    .wait_idle = a3d_gl_wait_idle,
+    .texture_load = a3d_gl_texture_load,
+    .texture_destroy = a3d_gl_texture_destroy,
+    .mesh_upload = a3d_gl_mesh_upload,
+    .mesh_init_triangle = a3d_gl_init_triangle,
+    .mesh_destroy = a3d_gl_destroy_mesh
 };
-

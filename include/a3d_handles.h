@@ -8,4 +8,3 @@ typedef Uint32 a3d_material_handle;
 typedef Uint32 a3d_shader_handle;
 
 #define A3D_ASSET_INVALID_HANDLE 0u
-

@@ -3,15 +3,16 @@
 #include <cglm/cglm.h>
 #include "a3d_gfx.h"
 
-typedef struct a3d_camera {
-	vec3        pos;
-	float       yaw;
-	float       pitch;
-	float       fov_deg;
-	float       near_z;
-	float       far_z;
-	mat4        view;
-	mat4        proj;
+typedef struct a3d_camera
+{
+	vec3 pos;
+	float yaw;
+	float pitch;
+	float fov_deg;
+	float near_z;
+	float far_z;
+	mat4 view;
+	mat4 proj;
 } a3d_camera;
 
 void a3d_camera_init(a3d_camera* c);

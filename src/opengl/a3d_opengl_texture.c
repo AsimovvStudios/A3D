@@ -12,19 +12,15 @@
 #include <stb_image.h>
 
 static bool a3d_gl_upload_texture_rgba(
-	a3d_texture* texture,
-	const unsigned char* pixels,
-	int width,
-	int height,
-	bool srgb,
-	bool is_fallback
+    a3d_texture* texture, const unsigned char* pixels, int width, int height, bool srgb, bool is_fallback
 );
 static bool a3d_gl_make_missing_texture(a3d_texture* texture);
 
 bool a3d_gl_texture_load(a3d* e, a3d_texture* texture, const char* path, bool srgb)
 {
 	(void)e;
-	if (!texture) {
+	if (!texture)
+	{
 		A3D_LOG_ERROR("a3d_gl_texture_load: texture is NULL");
 		return false;
 	}
@@ -39,7 +35,8 @@ bool a3d_gl_texture_load(a3d* e, a3d_texture* texture, const char* path, bool sr
 	int height = 0;
 	int channels = 0;
 	unsigned char* pixels = stbi_load(path, &width, &height, &channels, 4);
-	if (!pixels) {
+	if (!pixels)
+	{
 		A3D_LOG_WARN("texture load failed for '%s': %s; using missing texture", path, stbi_failure_reason());
 		return a3d_gl_make_missing_texture(texture);
 	}
@@ -55,7 +52,8 @@ void a3d_gl_texture_destroy(a3d* e, a3d_texture* texture)
 	if (!texture)
 		return;
 
-	if (texture->gpu.gl.id) {
+	if (texture->gpu.gl.id)
+	{
 		glDeleteTextures(1, &texture->gpu.gl.id);
 		texture->gpu.gl.id = 0;
 	}
@@ -68,22 +66,19 @@ void a3d_gl_texture_destroy(a3d* e, a3d_texture* texture)
 }
 
 static bool a3d_gl_upload_texture_rgba(
-	a3d_texture* texture,
-	const unsigned char* pixels,
-	int width,
-	int height,
-	bool srgb,
-	bool is_fallback
+    a3d_texture* texture, const unsigned char* pixels, int width, int height, bool srgb, bool is_fallback
 )
 {
-	if (!texture || !pixels || width <= 0 || height <= 0) {
+	if (!texture || !pixels || width <= 0 || height <= 0)
+	{
 		A3D_LOG_ERROR("a3d_gl_upload_texture_rgba: invalid args");
 		return false;
 	}
 
 	unsigned int tex = 0;
 	glGenTextures(1, &tex);
-	if (!tex) {
+	if (!tex)
+	{
 		A3D_LOG_ERROR("glGenTextures failed");
 		return false;
 	}
@@ -93,17 +88,7 @@ static bool a3d_gl_upload_texture_rgba(
 
 	/* use GL_SRGB8_ALPHA8 for sRGB textures to enable auto gamma correction in shader */
 	GLint internal_format = srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		internal_format,
-		width,
-		height,
-		0,
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		pixels
-	);
+	glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
 	/* TODO: nearest neighbor scaling */
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -127,11 +112,6 @@ static bool a3d_gl_upload_texture_rgba(
 static bool a3d_gl_make_missing_texture(a3d_texture* texture)
 {
 	/* 2x2 purple-black checkered pattern */
-	static const unsigned char checker[16] = {
-		255,  0, 255, 255,
-		  0,  0,   0, 255,
-		  0,  0,   0, 255,
-		255,  0, 255, 255
-	};
+	static const unsigned char checker[16] = {255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255};
 	return a3d_gl_upload_texture_rgba(texture, checker, 2, 2, false, true);
 }

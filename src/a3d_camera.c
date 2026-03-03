@@ -38,8 +38,9 @@ void a3d_camera_move_local(a3d_camera* c, float forward, float right, float up)
 	fwd[2] = sinf(c->yaw) * cosf(c->pitch);
 
 	{
-		float l = sqrtf(fwd[0]*fwd[0] + fwd[1]*fwd[1] + fwd[2]*fwd[2]);
-		if (l > 0.0f) {
+		float l = sqrtf(fwd[0] * fwd[0] + fwd[1] * fwd[1] + fwd[2] * fwd[2]);
+		if (l > 0.0f)
+		{
 			fwd[0] /= l;
 			fwd[1] /= l;
 			fwd[2] /= l;
@@ -51,8 +52,9 @@ void a3d_camera_move_local(a3d_camera* c, float forward, float right, float up)
 	glm_vec3_cross(fwd, world_up, right_v);
 
 	{
-		float l = sqrtf(right_v[0]*right_v[0] + right_v[1]*right_v[1] + right_v[2]*right_v[2]);
-		if (l > 0.0f) {
+		float l = sqrtf(right_v[0] * right_v[0] + right_v[1] * right_v[1] + right_v[2] * right_v[2]);
+		if (l > 0.0f)
+		{
 			right_v[0] /= l;
 			right_v[1] /= l;
 			right_v[2] /= l;

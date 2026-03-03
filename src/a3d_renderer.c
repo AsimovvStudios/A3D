@@ -9,40 +9,39 @@ static int a3d_renderer_compare_draw_items(const void* lhs_ptr, const void* rhs_
 bool a3d_renderer_draw_mesh(a3d_renderer* r, a3d_mesh_handle mesh, const a3d_mvp* mvp)
 {
 	return a3d_renderer_draw_mesh_material(
-		r,
-		mesh,
-		mvp,
-		A3D_ASSET_INVALID_HANDLE,
-		A3D_ASSET_INVALID_HANDLE,
-		A3D_ASSET_INVALID_HANDLE
+	    r, mesh, mvp, A3D_ASSET_INVALID_HANDLE, A3D_ASSET_INVALID_HANDLE, A3D_ASSET_INVALID_HANDLE
 	);
 }
 
 bool a3d_renderer_draw_mesh_material(
-	a3d_renderer* r,
-	a3d_mesh_handle mesh,
-	const a3d_mvp* mvp,
-	a3d_material_handle material,
-	a3d_shader_handle sort_shader,
-	a3d_texture_handle sort_texture
+    a3d_renderer* r,
+    a3d_mesh_handle mesh,
+    const a3d_mvp* mvp,
+    a3d_material_handle material,
+    a3d_shader_handle sort_shader,
+    a3d_texture_handle sort_texture
 )
 {
-	if (!r) {
+	if (!r)
+	{
 		A3D_LOG_ERROR("renderer not initialised");
 		return false;
 	}
 
-	if (!r->frame_active) {
+	if (!r->frame_active)
+	{
 		A3D_LOG_WARN("a3d_renderer_draw_mesh called outside begin/end_frame");
 		return false;
 	}
 
-	if (r->count >= A3D_RENDERER_MAX_DRAW_CALLS) {
+	if (r->count >= A3D_RENDERER_MAX_DRAW_CALLS)
+	{
 		A3D_LOG_WARN("renderer queue full; dropping draw call");
 		return false;
 	}
 
-	if (!mvp || mesh == A3D_ASSET_INVALID_HANDLE) {
+	if (!mvp || mesh == A3D_ASSET_INVALID_HANDLE)
+	{
 		A3D_LOG_ERROR("renderer_draw_mesh: bad args");
 		return false;
 	}
@@ -60,36 +59,41 @@ bool a3d_renderer_draw_mesh_material(
 }
 
 bool a3d_renderer_draw_mesh_material_instanced(
-	a3d_renderer* r,
-	a3d_mesh_handle mesh,
-	a3d_material_handle material,
-	a3d_shader_handle sort_shader,
-	a3d_texture_handle sort_texture,
-	const a3d_mvp* instances,
-	Uint32 instance_count
+    a3d_renderer* r,
+    a3d_mesh_handle mesh,
+    a3d_material_handle material,
+    a3d_shader_handle sort_shader,
+    a3d_texture_handle sort_texture,
+    const a3d_mvp* instances,
+    Uint32 instance_count
 )
 {
-	if (!r) {
+	if (!r)
+	{
 		A3D_LOG_ERROR("renderer not initialised");
 		return false;
 	}
 
-	if (!instances || instance_count == 0 || mesh == A3D_ASSET_INVALID_HANDLE) {
+	if (!instances || instance_count == 0 || mesh == A3D_ASSET_INVALID_HANDLE)
+	{
 		A3D_LOG_ERROR("a3d_renderer_draw_mesh_material_instanced: bad args");
 		return false;
 	}
 
-	if (!r->frame_active) {
+	if (!r->frame_active)
+	{
 		A3D_LOG_WARN("a3d_renderer_draw_mesh_material_instanced called outside begin/end_frame");
 		return false;
 	}
 
-	if (r->count >= A3D_RENDERER_MAX_DRAW_CALLS) {
+	if (r->count >= A3D_RENDERER_MAX_DRAW_CALLS)
+	{
 		A3D_LOG_WARN("renderer queue full; dropping instanced draw call");
 		return false;
 	}
 
-	if (r->instance_mvp_count + instance_count > A3D_RENDERER_MAX_INSTANCES) {
+	if (r->instance_mvp_count + instance_count > A3D_RENDERER_MAX_INSTANCES)
+	{
 		A3D_LOG_WARN("renderer instance pool full; dropping instanced draw call");
 		return false;
 	}
@@ -113,7 +117,8 @@ bool a3d_renderer_draw_mesh_material_instanced(
 
 void a3d_renderer_frame_begin(a3d_renderer* r)
 {
-	if (!r) {
+	if (!r)
+	{
 		A3D_LOG_ERROR("a3d_renderer_frame_begin called without renderer");
 		return;
 	}
@@ -125,7 +130,8 @@ void a3d_renderer_frame_begin(a3d_renderer* r)
 
 void a3d_renderer_frame_end(a3d_renderer* r)
 {
-	if (!r) {
+	if (!r)
+	{
 		A3D_LOG_ERROR("a3d_renderer_frame_end called without renderer");
 		return;
 	}
@@ -141,7 +147,8 @@ void a3d_renderer_get_draw_items(a3d_renderer* r, const a3d_draw_item** out_item
 	if (!out_items || !out_count)
 		return;
 
-	if (!r) {
+	if (!r)
+	{
 		*out_items = NULL;
 		*out_count = 0;
 		return;
@@ -153,7 +160,8 @@ void a3d_renderer_get_draw_items(a3d_renderer* r, const a3d_draw_item** out_item
 
 bool a3d_renderer_init(a3d_renderer* r)
 {
-	if (!r) {
+	if (!r)
+	{
 		A3D_LOG_ERROR("a3d_renderer_init called with NULL");
 		return false;
 	}
@@ -190,4 +198,3 @@ static int a3d_renderer_compare_draw_items(const void* lhs_ptr, const void* rhs_
 
 	return 0;
 }
-

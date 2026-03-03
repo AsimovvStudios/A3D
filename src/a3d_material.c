@@ -20,4 +20,3 @@ void a3d_material_set_tint(a3d_material* material, float r, float g, float b, fl
 	material->tint[2] = b;
 	material->tint[3] = a;
 }
-

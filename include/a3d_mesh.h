@@ -4,30 +4,35 @@
 #include "a3d_gfx.h"
 typedef struct a3d a3d;
 
-typedef struct a3d_vertex {
-	float       position[3];
-	float       normal[3];
-	float       uv[2];
+typedef struct a3d_vertex
+{
+	float position[3];
+	float normal[3];
+	float uv[2];
 } a3d_vertex;
 
-struct a3d_mesh {
-	Uint32      vertex_count;
-	Uint32      index_count;
+struct a3d_mesh
+{
+	Uint32 vertex_count;
+	Uint32 index_count;
 	a3d_topology topology;
 
-	union {
+	union
+	{
 		/* Vulkan handles */
-		struct {
-			void*       vertex_buffer_buff;
-			void*       vertex_buffer_mem;
-			Uint64      vertex_buffer_size;
-			void*       index_buffer_buff;
-			void*       index_buffer_mem;
-			Uint64      index_buffer_size;
+		struct
+		{
+			void* vertex_buffer_buff;
+			void* vertex_buffer_mem;
+			Uint64 vertex_buffer_size;
+			void* index_buffer_buff;
+			void* index_buffer_mem;
+			Uint64 index_buffer_size;
 		} vk;
 
 		/* OpenGL handles */
-		struct {
+		struct
+		{
 			unsigned int vao;
 			unsigned int vbo;
 			unsigned int ebo;
@@ -40,10 +45,7 @@ typedef struct a3d_mesh a3d_mesh;
 
 void a3d_destroy_mesh(a3d* e, a3d_mesh* mesh);
 bool a3d_init_triangle(a3d* e, a3d_mesh* mesh);
-bool a3d_mesh_upload(a3d* e, a3d_mesh* mesh,
-	const a3d_vertex* v, Uint32 vcount,
-	const a3d_index* idx, Uint32 icount,
-	a3d_topology topo
+bool a3d_mesh_upload(
+    a3d* e, a3d_mesh* mesh, const a3d_vertex* v, Uint32 vcount, const a3d_index* idx, Uint32 icount, a3d_topology topo
 );
 bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path);
-

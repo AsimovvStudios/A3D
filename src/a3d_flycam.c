@@ -41,19 +41,17 @@ void a3d_flycam_update(a3d_camera* cam, const a3d_input* in, float dt)
 
 	/* normalise movement vector */
 	const float move_len = sqrtf(forward * forward + right * right + up * up);
-	if (move_len > 0.0f) {
+	if (move_len > 0.0f)
+	{
 		const float step = (move_speed * dt) / move_len;
 		a3d_camera_move_local(cam, forward * step, right * step, up * step);
 	}
 
 	/* apply mouse look if locked */
-	if (in->mouse_locked) {
+	if (in->mouse_locked)
+	{
 		cam->yaw += in->mouse_dx * look_sensitivity;
-		cam->pitch = a3d_clampf(
-			cam->pitch - (in->mouse_dy * look_sensitivity),
-			-pitch_limit,
-			pitch_limit
-		);
+		cam->pitch = a3d_clampf(cam->pitch - (in->mouse_dy * look_sensitivity), -pitch_limit, pitch_limit);
 	}
 
 	a3d_camera_rebuild_view(cam);

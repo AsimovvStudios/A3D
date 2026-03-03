@@ -10,7 +10,8 @@
 unsigned int a3d_gl_compile_shader(const char* source, unsigned int type)
 {
 	GLuint shader = glCreateShader(type);
-	if (shader == 0) {
+	if (shader == 0)
+	{
 		A3D_LOG_ERROR("failed to create shader");
 		return 0;
 	}
@@ -20,18 +21,22 @@ unsigned int a3d_gl_compile_shader(const char* source, unsigned int type)
 
 	GLint success;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (!success) {
+	if (!success)
+	{
 		GLint log_length;
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-		if (log_length > 0) {
+		if (log_length > 0)
+		{
 			char* log = malloc((size_t)log_length);
-			if (log) {
+			if (log)
+			{
 				glGetShaderInfoLog(shader, log_length, NULL, log);
 				A3D_LOG_ERROR("shader compilation failed:\n%s", log);
 				free(log);
 			}
 		}
-		else {
+		else
+		{
 			A3D_LOG_ERROR("shader compilation failed (no log)");
 		}
 
@@ -58,14 +63,16 @@ unsigned int a3d_gl_create_program_from_files(const char* vert_path, const char*
 
 	/* load fragment shader */
 	char* frag_source = a3d_gl_load_shader_source(frag_path);
-	if (!frag_source) {
+	if (!frag_source)
+	{
 		glDeleteShader(vert_shader);
 		return 0;
 	}
 
 	GLuint frag_shader = a3d_gl_compile_shader(frag_source, GL_FRAGMENT_SHADER);
 	free(frag_source);
-	if (frag_shader == 0) {
+	if (frag_shader == 0)
+	{
 		glDeleteShader(vert_shader);
 		return 0;
 	}
@@ -83,7 +90,8 @@ unsigned int a3d_gl_create_program_from_files(const char* vert_path, const char*
 unsigned int a3d_gl_link_program(unsigned int vertex_shader, unsigned int fragment_shader)
 {
 	GLuint program = glCreateProgram();
-	if (program == 0) {
+	if (program == 0)
+	{
 		A3D_LOG_ERROR("failed to create shader program");
 		return 0;
 	}
@@ -94,18 +102,22 @@ unsigned int a3d_gl_link_program(unsigned int vertex_shader, unsigned int fragme
 
 	GLint success;
 	glGetProgramiv(program, GL_LINK_STATUS, &success);
-	if (!success) {
+	if (!success)
+	{
 		GLint log_length;
 		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_length);
-		if (log_length > 0) {
+		if (log_length > 0)
+		{
 			char* log = malloc((size_t)log_length);
-			if (log) {
+			if (log)
+			{
 				glGetProgramInfoLog(program, log_length, NULL, log);
 				A3D_LOG_ERROR("program linking failed:\n%s", log);
 				free(log);
 			}
 		}
-		else {
+		else
+		{
 			A3D_LOG_ERROR("program linking failed (no log)");
 		}
 		glDeleteProgram(program);
@@ -123,7 +135,8 @@ unsigned int a3d_gl_link_program(unsigned int vertex_shader, unsigned int fragme
 char* a3d_gl_load_shader_source(const char* filepath)
 {
 	FILE* file = fopen(filepath, "rb");
-	if (!file) {
+	if (!file)
+	{
 		A3D_LOG_ERROR("failed to open shader file: %s", filepath);
 		return NULL;
 	}
@@ -133,7 +146,8 @@ char* a3d_gl_load_shader_source(const char* filepath)
 	long size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	if (size <= 0) {
+	if (size <= 0)
+	{
 		A3D_LOG_ERROR("shader file is empty or error: %s", filepath);
 		fclose(file);
 		return NULL;
@@ -141,7 +155,8 @@ char* a3d_gl_load_shader_source(const char* filepath)
 
 	/* allocate buffer */
 	char* source = malloc((size_t)size + 1);
-	if (!source) {
+	if (!source)
+	{
 		A3D_LOG_ERROR("failed to allocate memory for shader source");
 		fclose(file);
 		return NULL;
@@ -151,7 +166,8 @@ char* a3d_gl_load_shader_source(const char* filepath)
 	size_t read = fread(source, 1, (size_t)size, file);
 	fclose(file);
 
-	if ((long)read != size) {
+	if ((long)read != size)
+	{
 		A3D_LOG_ERROR("failed to read shader file: %s", filepath);
 		free(source);
 		return NULL;
@@ -161,4 +177,3 @@ char* a3d_gl_load_shader_source(const char* filepath)
 	A3D_LOG_INFO("loaded shader source from: %s", filepath);
 	return source;
 }
-

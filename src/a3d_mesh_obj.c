@@ -14,17 +14,12 @@
 #include "tinyobj_loader_c.h"
 
 static const char* a3d_tinyobj_result_string(int result);
-static void a3d_tinyobj_file_reader(
-	void* ctx,
-	const char* filename,
-	int is_mtl,
-	const char* obj_filename,
-	char** buf,
-	size_t* len
-);
+static void
+a3d_tinyobj_file_reader(void* ctx, const char* filename, int is_mtl, const char* obj_filename, char** buf, size_t* len);
 static bool a3d_tinyobj_read_file_alloc(const char* filename, char** out_buf, size_t* out_len);
 
-typedef struct a3d_tinyobj_ctx {
+typedef struct a3d_tinyobj_ctx
+{
 	char** bufs;
 	size_t count;
 	size_t cap;
@@ -32,7 +27,8 @@ typedef struct a3d_tinyobj_ctx {
 
 bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 {
-	if (!e || !mesh || !path) {
+	if (!e || !mesh || !path)
+	{
 		A3D_LOG_ERROR("a3d_mesh_load_obj: invalid args");
 		return false;
 	}
@@ -50,17 +46,18 @@ bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 	/* parse OBJ file (using custom file reader) */
 	tinyobj_attrib_init(&attrib);
 	int result = tinyobj_parse_obj(
-		&attrib,
-		&shapes,
-		&num_shapes,
-		&materials,
-		&num_materials,
-		path,
-		a3d_tinyobj_file_reader,
-		&file_ctx,
-		TINYOBJ_FLAG_TRIANGULATE
+	    &attrib,
+	    &shapes,
+	    &num_shapes,
+	    &materials,
+	    &num_materials,
+	    path,
+	    a3d_tinyobj_file_reader,
+	    &file_ctx,
+	    TINYOBJ_FLAG_TRIANGULATE
 	);
-	if (result != TINYOBJ_SUCCESS) {
+	if (result != TINYOBJ_SUCCESS)
+	{
 		A3D_LOG_ERROR("failed to parse OBJ '%s': %s", path, a3d_tinyobj_result_string(result));
 		goto cleanup;
 	}
@@ -69,7 +66,8 @@ bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 	(void)num_shapes;
 	(void)num_materials;
 
-	if (attrib.num_vertices == 0 || attrib.num_faces == 0) {
+	if (attrib.num_vertices == 0 || attrib.num_faces == 0)
+	{
 		A3D_LOG_ERROR("OBJ has no renderable geometry: %s", path);
 		goto cleanup;
 	}
@@ -78,13 +76,18 @@ bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 	float max_x = -FLT_MAX;
 	float min_z = FLT_MAX;
 	float max_z = -FLT_MAX;
-	for (Uint32 i = 0; i < attrib.num_vertices; i++) {
+	for (Uint32 i = 0; i < attrib.num_vertices; i++)
+	{
 		float x = attrib.vertices[(size_t)i * 3 + 0];
 		float z = attrib.vertices[(size_t)i * 3 + 2];
-		if (x < min_x) min_x = x;
-		if (x > max_x) max_x = x;
-		if (z < min_z) min_z = z;
-		if (z > max_z) max_z = z;
+		if (x < min_x)
+			min_x = x;
+		if (x > max_x)
+			max_x = x;
+		if (z < min_z)
+			min_z = z;
+		if (z > max_z)
+			max_z = z;
 	}
 	float range_x = max_x - min_x;
 	float range_z = max_z - min_z;
@@ -105,14 +108,17 @@ bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 	/* allocate vertex and index buffers */
 	vertices = calloc(vertex_count, sizeof(*vertices));
 	indices = malloc(sizeof(*indices) * index_count);
-	if (!vertices || !indices) {
+	if (!vertices || !indices)
+	{
 		A3D_LOG_ERROR("out of memory while loading OBJ '%s'", path);
 		goto cleanup;
 	}
 
-	if (direct_position_indexing) {
+	if (direct_position_indexing)
+	{
 		/* fill vertex buffer with positions and default normals/uvs */
-		for (Uint32 i = 0; i < attrib.num_vertices; i++) {
+		for (Uint32 i = 0; i < attrib.num_vertices; i++)
+		{
 			vertices[i].position[0] = attrib.vertices[(size_t)i * 3 + 0];
 			vertices[i].position[1] = attrib.vertices[(size_t)i * 3 + 1];
 			vertices[i].position[2] = attrib.vertices[(size_t)i * 3 + 2];
@@ -128,23 +134,28 @@ bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 	Uint32 out_index = 0;
 	Uint32 out_vertex = 0;
 	/* convert faces to vertex and index buffers */
-	for (Uint32 face = 0; face < attrib.num_face_num_verts; face++) {
+	for (Uint32 face = 0; face < attrib.num_face_num_verts; face++)
+	{
 		int face_vertices = attrib.face_num_verts[face];
-		if (face_vertices != 3) {
+		if (face_vertices != 3)
+		{
 			A3D_LOG_ERROR("triangulation failed for OBJ '%s' at face %u", path, face);
 			goto cleanup;
 		}
 
 		/* for each corner of face, get position/normal/uv, write to vertex/index buffers */
-		for (int corner = 0; corner < 3; corner++) {
+		for (int corner = 0; corner < 3; corner++)
+		{
 			tinyobj_vertex_index_t idx = attrib.faces[face_offset + (size_t)corner];
-			if (idx.v_idx < 0 || (Uint32)idx.v_idx >= attrib.num_vertices) {
+			if (idx.v_idx < 0 || (Uint32)idx.v_idx >= attrib.num_vertices)
+			{
 				A3D_LOG_ERROR("invalid position index in OBJ '%s' at face %u", path, face);
 				goto cleanup;
 			}
 
 			/* if no normals or texcoords, use position index for vertex index */
-			if (direct_position_indexing) {
+			if (direct_position_indexing)
+			{
 				indices[out_index++] = (Uint32)idx.v_idx;
 				continue;
 			}
@@ -158,7 +169,8 @@ bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 			vertex->normal[0] = 0.0f;
 			vertex->normal[1] = 1.0f;
 			vertex->normal[2] = 0.0f;
-			if (idx.vn_idx >= 0 && (Uint32)idx.vn_idx < attrib.num_normals) {
+			if (idx.vn_idx >= 0 && (Uint32)idx.vn_idx < attrib.num_normals)
+			{
 				vertex->normal[0] = attrib.normals[(size_t)idx.vn_idx * 3 + 0];
 				vertex->normal[1] = attrib.normals[(size_t)idx.vn_idx * 3 + 1];
 				vertex->normal[2] = attrib.normals[(size_t)idx.vn_idx * 3 + 2];
@@ -166,7 +178,8 @@ bool a3d_mesh_load_obj(a3d* e, a3d_mesh* mesh, const char* path)
 
 			vertex->uv[0] = (vertex->position[0] - min_x) * inv_range_x;
 			vertex->uv[1] = (vertex->position[2] - min_z) * inv_range_z;
-			if (idx.vt_idx >= 0 && (Uint32)idx.vt_idx < attrib.num_texcoords) {
+			if (idx.vt_idx >= 0 && (Uint32)idx.vt_idx < attrib.num_texcoords)
+			{
 				vertex->uv[0] = attrib.texcoords[(size_t)idx.vt_idx * 2 + 0];
 				vertex->uv[1] = attrib.texcoords[(size_t)idx.vt_idx * 2 + 1];
 			}
@@ -195,27 +208,28 @@ cleanup:
 
 static const char* a3d_tinyobj_result_string(int result)
 {
-	switch (result) {
-	case TINYOBJ_SUCCESS: return "success";
-	case TINYOBJ_ERROR_EMPTY: return "file is empty";
-	case TINYOBJ_ERROR_INVALID_PARAMETER: return "invalid parameter";
-	case TINYOBJ_ERROR_FILE_OPERATION: return "file operation failed";
-	default: return "unknown tinyobj error";
+	switch (result)
+	{
+		case TINYOBJ_SUCCESS:
+			return "success";
+		case TINYOBJ_ERROR_EMPTY:
+			return "file is empty";
+		case TINYOBJ_ERROR_INVALID_PARAMETER:
+			return "invalid parameter";
+		case TINYOBJ_ERROR_FILE_OPERATION:
+			return "file operation failed";
+		default:
+			return "unknown tinyobj error";
 	}
 }
 
-static void a3d_tinyobj_file_reader(
-	void* ctx,
-	const char* filename,
-	int is_mtl,
-	const char* obj_filename,
-	char** buf,
-	size_t* len
-)
+static void
+a3d_tinyobj_file_reader(void* ctx, const char* filename, int is_mtl, const char* obj_filename, char** buf, size_t* len)
 {
 	(void)is_mtl;
 	(void)obj_filename;
-	if (!buf || !len) {
+	if (!buf || !len)
+	{
 		return;
 	}
 
@@ -228,16 +242,19 @@ static void a3d_tinyobj_file_reader(
 		return;
 
 	a3d_tinyobj_ctx* reader_ctx = (a3d_tinyobj_ctx*)ctx;
-	if (!reader_ctx) {
+	if (!reader_ctx)
+	{
 		free(loaded);
 		return;
 	}
 
 	/* if needed, grow file buffer array */
-	if (reader_ctx->count >= reader_ctx->cap) {
+	if (reader_ctx->count >= reader_ctx->cap)
+	{
 		size_t new_cap = (reader_ctx->cap == 0) ? 4 : (reader_ctx->cap * 2);
 		char** resized = realloc(reader_ctx->bufs, sizeof(*resized) * new_cap);
-		if (!resized) {
+		if (!resized)
+		{
 			free(loaded);
 			return;
 		}
@@ -263,32 +280,37 @@ static bool a3d_tinyobj_read_file_alloc(const char* filename, char** out_buf, si
 	if (!file)
 		return false;
 
-	if (fseek(file, 0, SEEK_END) != 0) {
+	if (fseek(file, 0, SEEK_END) != 0)
+	{
 		fclose(file);
 		return false;
 	}
 
 	long size = ftell(file);
-	if (size < 0) {
+	if (size < 0)
+	{
 		fclose(file);
 		return false;
 	}
 
-	if (fseek(file, 0, SEEK_SET) != 0) {
+	if (fseek(file, 0, SEEK_SET) != 0)
+	{
 		fclose(file);
 		return false;
 	}
 
 	size_t len = (size_t)size;
 	char* buf = malloc(len + 1);
-	if (!buf) {
+	if (!buf)
+	{
 		fclose(file);
 		return false;
 	}
 
 	size_t read = fread(buf, 1, len, file);
 	fclose(file);
-	if (read != len) {
+	if (read != len)
+	{
 		free(buf);
 		return false;
 	}

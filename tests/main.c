@@ -11,7 +11,8 @@
 #include "a3d_logging.h"
 #include "a3d_map.h"
 
-typedef struct a3d_test_prog {
+typedef struct a3d_test_prog
+{
 	a3d_backend backend;
 	a3d_map map;
 	a3d_camera camera;
@@ -47,21 +48,19 @@ static void a3d_test_tick(a3d* engine, void* user)
 
 	a3d_test_prog* app = user;
 
-	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_ESCAPE)) {
+	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_ESCAPE))
+	{
 		engine->running = false;
 		return;
 	}
 
-	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_TAB)) {
+	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_TAB))
+	{
 		bool lock_mouse = !engine->input.mouse_locked;
 		if (SDL_SetWindowRelativeMouseMode(engine->window, lock_mouse))
 			engine->input.mouse_locked = lock_mouse;
 		else
-			A3D_LOG_WARN(
-				"failed to %s mouse lock: %s",
-				lock_mouse ? "enable" : "disable",
-				SDL_GetError()
-			);
+			A3D_LOG_WARN("failed to %s mouse lock: %s", lock_mouse ? "enable" : "disable", SDL_GetError());
 	}
 
 	a3d_flycam_update(&app->camera, &engine->input, a3d_dt(engine));
@@ -77,7 +76,8 @@ int main(int argc, char** argv)
 
 	a3d_backend backend = A3D_BACKEND;
 	a3d engine;
-	if (!a3d_init_backend(&engine, backend, "a3d test", 1024, 768)) {
+	if (!a3d_init_backend(&engine, backend, "a3d test", 1024, 768))
+	{
 		A3D_LOG_ERROR("engine initialisation failed");
 		return EXIT_FAILURE;
 	}
@@ -86,7 +86,8 @@ int main(int argc, char** argv)
 	memset(&app, 0, sizeof(app));
 	app.backend = backend;
 	a3d_map_init(&app.map);
-	if (!a3d_map_load(&engine, &app.map, "assets/scene.a3dmap")) {
+	if (!a3d_map_load(&engine, &app.map, "assets/scene.a3dmap"))
+	{
 		A3D_LOG_ERROR("failed to load assets/scene.a3dmap");
 		a3d_quit(&engine);
 		return EXIT_FAILURE;

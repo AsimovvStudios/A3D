@@ -7,14 +7,16 @@
 
 bool a3d_texture_load(a3d* e, a3d_texture* texture, const char* path, bool srgb)
 {
-	if (!e || !texture) {
+	if (!e || !texture)
+	{
 		A3D_LOG_ERROR("a3d_texture_load: invalid args");
 		return false;
 	}
 
 	/* zero out texture so backend doesnt write to all fields */
 	memset(texture, 0, sizeof(*texture));
-	if (!e->gfx.v || !e->gfx.v->texture_load) {
+	if (!e->gfx.v || !e->gfx.v->texture_load)
+	{
 		A3D_LOG_ERROR("backend does not support textures");
 		return false;
 	}
@@ -30,4 +32,3 @@ void a3d_texture_destroy(a3d* e, a3d_texture* texture)
 	if (e->gfx.v && e->gfx.v->texture_destroy)
 		e->gfx.v->texture_destroy(e, texture);
 }
-

@@ -5,7 +5,7 @@ MESON = meson
 BUILD = build/gl
 BACKEND = gl
 
-.PHONY: all setup compile gl vk run clean distclean compile_flags
+.PHONY: all setup compile gl vk run clean distclean compile_flags format
 
 all: compile
 
@@ -46,3 +46,7 @@ compile_flags: setup
 		printf '%s\n' -DBACKEND_GL >> compile_flags.txt; \
 	fi
 	@pkg-config --cflags sdl3 cglm | tr ' ' '\n' >> compile_flags.txt
+
+format:
+	@clang-format -i $(shell find include src tests -type f \( -name '*.c' -o -name '*.h' \) | sort)
+
