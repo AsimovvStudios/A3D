@@ -14,6 +14,7 @@
 #define A3D_LOG_TAG "MAP"
 #include "a3d_logging.h"
 #include "a3d_map.h"
+#include "a3d_scene.h"
 #include "a3d_transform.h"
 
 typedef struct a3d_map_entity_build
@@ -113,6 +114,40 @@ bool a3d_map_reload_if_changed(a3d* e, a3d_map* map)
 
 	A3D_LOG_INFO("map file changed, reloading: %s", map->source_path);
 	return a3d_map_load(e, map, map->source_path);
+}
+
+bool a3d_map_scene_build(const a3d_map* map, a3d_scene* scene)
+{
+	if (!map || !scene)
+	{
+		A3D_LOG_ERROR("a3d_map_scene_build: invalid args");
+		return false;
+	}
+
+	a3d_scene_clear(scene);
+
+	bool ok = true;
+	for (Uint32 i = 0; i < map->entity_count; i++)
+	{
+		const a3d_map_entity* entity = &map->entities[i];
+		if (entity->mesh == A3D_ASSET_INVALID_HANDLE)
+			continue;
+
+		a3d_scene_spawn_desc desc;
+		desc.mesh = entity->mesh;
+		desc.material = entity->material;
+		memcpy(desc.position, entity->position, sizeof(desc.position));
+		memcpy(desc.rotation_deg, entity->rotation_deg, sizeof(desc.rotation_deg));
+		memcpy(desc.scale, entity->scale, sizeof(desc.scale));
+
+		if (a3d_scene_spawn(scene, &desc) == A3D_ENTITY_INVALID)
+		{
+			A3D_LOG_WARN("a3d_map_scene_build: failed to spawn entity '%s'", entity->name);
+			ok = false;
+		}
+	}
+
+	return ok;
 }
 
 bool a3d_map_submit(a3d* e, const a3d_map* map, const mat4 view, const mat4 proj)

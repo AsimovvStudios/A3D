@@ -8,6 +8,7 @@
 #include "a3d_assets.h"
 
 typedef struct a3d a3d;
+typedef struct a3d_scene a3d_scene;
 
 #define A3D_MAP_MAX_ENTITIES 2048
 #define A3D_MAP_ENTITY_NAME_MAX 64
@@ -35,4 +36,5 @@ void a3d_map_init(a3d_map* map);
 void a3d_map_clear(a3d* e, a3d_map* map);
 bool a3d_map_load(a3d* e, a3d_map* map, const char* path);
 bool a3d_map_reload_if_changed(a3d* e, a3d_map* map);
+bool a3d_map_scene_build(const a3d_map* map, a3d_scene* scene);
 bool a3d_map_submit(a3d* e, const a3d_map* map, const mat4 view, const mat4 proj);

@@ -32,6 +32,7 @@ src_engine_common = files(
   'src/a3d_material.c',
   'src/a3d_mesh.c',
   'src/a3d_mesh_obj.c',
+  'src/a3d_scene.c',
   'src/a3d_renderer.c',
   'src/a3d_texture.c',
   'src/a3d_transform.c',
@@ -83,4 +84,3 @@ executable(
   include_directories: inc,
   dependencies: [a3d_dep]
 )
-

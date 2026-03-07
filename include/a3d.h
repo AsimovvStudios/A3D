@@ -8,6 +8,7 @@
 #include "a3d_handles.h"
 #include "a3d_input.h"
 #include "a3d_material.h"
+#include "a3d_scene.h"
 #include "a3d_texture.h"
 
 #if defined(BACKEND_VK) && defined(BACKEND_GL)
