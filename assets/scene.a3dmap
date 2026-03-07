@@ -1,11 +1,10 @@
 version = 1
 
 entity box
-mesh = assets/model.obj
+mesh = assets/angel.obj
 texture = assets/diffuse.png
 pos = 0 0 0
 rot = 0 0 0
 scale = 1 1 1
 tint = 1 1 1 1
 end
-
