@@ -487,6 +487,33 @@ bool a3d_draw_instanced(
 	);
 }
 
+void a3d_get_window_size(const a3d* e, int* out_w, int* out_h)
+{
+	if (out_w)
+		*out_w = 0;
+	if (out_h)
+		*out_h = 0;
+
+	if (!e || !e->window)
+		return;
+
+	int w = 0;
+	int h = 0;
+	SDL_GetWindowSizeInPixels(e->window, &w, &h);
+
+	if (out_w)
+		*out_w = w;
+	if (out_h)
+		*out_h = h;
+}
+
+bool a3d_is_mouse_locked(const a3d* e)
+{
+	if (!e)
+		return false;
+	return e->input.mouse_locked;
+}
+
 a3d_assets* a3d_get_assets(a3d* e)
 {
 	if (!e)
@@ -501,6 +528,21 @@ const a3d_assets* a3d_get_assets_const(const a3d* e)
 		return NULL;
 
 	return e->assets;
+}
+
+bool a3d_set_mouse_locked(a3d* e, bool locked)
+{
+	if (!e || !e->window)
+		return false;
+
+	if (SDL_SetWindowRelativeMouseMode(e->window, locked))
+	{
+		e->input.mouse_locked = locked;
+		return true;
+	}
+
+	A3D_LOG_WARN("failed to %s mouse lock: %s", locked ? "enable" : "disable", SDL_GetError());
+	return false;
 }
 
 void a3d_wait_idle(a3d* e)

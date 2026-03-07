@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <SDL3/SDL.h>
-
 #include "a3d.h"
 #include "a3d_camera.h"
 #include "a3d_flycam.h"
@@ -28,7 +26,7 @@ static void a3d_test_update_projection(a3d* engine, a3d_test_prog* app)
 
 	int width = 0;
 	int height = 0;
-	SDL_GetWindowSizeInPixels(engine->window, &width, &height);
+	a3d_get_window_size(engine, &width, &height);
 	if (width <= 0 || height <= 0)
 		return;
 
@@ -48,19 +46,16 @@ static void a3d_test_tick(a3d* engine, void* user)
 
 	a3d_test_prog* app = user;
 
-	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_ESCAPE))
+	if (a3d_key_pressed(&engine->input, A3D_KEY(ESCAPE)))
 	{
 		engine->running = false;
 		return;
 	}
 
-	if (a3d_key_pressed(&engine->input, SDL_SCANCODE_TAB))
+	if (a3d_key_pressed(&engine->input, A3D_KEY(TAB)))
 	{
-		bool lock_mouse = !engine->input.mouse_locked;
-		if (SDL_SetWindowRelativeMouseMode(engine->window, lock_mouse))
-			engine->input.mouse_locked = lock_mouse;
-		else
-			A3D_LOG_WARN("failed to %s mouse lock: %s", lock_mouse ? "enable" : "disable", SDL_GetError());
+		bool lock_mouse = !a3d_is_mouse_locked(engine);
+		(void)a3d_set_mouse_locked(engine, lock_mouse);
 	}
 
 	a3d_flycam_update(&app->camera, &engine->input, a3d_dt(engine));
@@ -97,22 +92,19 @@ int main(int argc, char** argv)
 
 	int width = 0;
 	int height = 0;
-	SDL_GetWindowSizeInPixels(engine.window, &width, &height);
+	a3d_get_window_size(&engine, &width, &height);
 	app.aspect = (width > 0 && height > 0) ? (float)width / (float)height : 16.0f / 9.0f;
 	app.prev_w = width;
 	app.prev_h = height;
 	a3d_camera_set_perspective(&app.camera, app.aspect, backend);
 	a3d_camera_rebuild_view(&app.camera);
 
-	if (SDL_SetWindowRelativeMouseMode(engine.window, true))
-		engine.input.mouse_locked = true;
-	else
-		A3D_LOG_WARN("failed to enable mouse lock: %s", SDL_GetError());
+	(void)a3d_set_mouse_locked(&engine, true);
 
 	a3d_run(&engine, a3d_test_tick, &app);
 
-	if (engine.input.mouse_locked)
-		(void)SDL_SetWindowRelativeMouseMode(engine.window, false);
+	if (a3d_is_mouse_locked(&engine))
+		(void)a3d_set_mouse_locked(&engine, false);
 
 	a3d_wait_idle(&engine);
 	a3d_map_clear(&engine, &app.map);

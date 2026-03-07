@@ -26,17 +26,17 @@ void a3d_flycam_update(a3d_camera* cam, const a3d_input* in, float dt)
 	float right = 0.0f;
 	float up = 0.0f;
 
-	if (a3d_key_down(in, SDL_SCANCODE_W))
+	if (a3d_key_down(in, A3D_KEY(W)))
 		forward += 1.0f;
-	if (a3d_key_down(in, SDL_SCANCODE_S))
+	if (a3d_key_down(in, A3D_KEY(S)))
 		forward -= 1.0f;
-	if (a3d_key_down(in, SDL_SCANCODE_D))
+	if (a3d_key_down(in, A3D_KEY(D)))
 		right += 1.0f;
-	if (a3d_key_down(in, SDL_SCANCODE_A))
+	if (a3d_key_down(in, A3D_KEY(A)))
 		right -= 1.0f;
-	if (a3d_key_down(in, SDL_SCANCODE_SPACE))
+	if (a3d_key_down(in, A3D_KEY(SPACE)))
 		up += 1.0f;
-	if (a3d_key_down(in, SDL_SCANCODE_LCTRL) || a3d_key_down(in, SDL_SCANCODE_RCTRL))
+	if (a3d_key_down(in, A3D_KEY(LCTRL)) || a3d_key_down(in, A3D_KEY(RCTRL)))
 		up -= 1.0f;
 
 	/* normalise movement vector */

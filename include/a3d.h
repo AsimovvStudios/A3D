@@ -154,6 +154,9 @@ bool a3d_submit_mesh_material_handle(a3d* e, a3d_mesh_handle mesh, a3d_material_
 bool a3d_draw_instanced(
     a3d* e, a3d_mesh_handle mesh, a3d_material_handle material, const a3d_mvp* instances, Uint32 instance_count
 );
+void a3d_get_window_size(const a3d* e, int* out_w, int* out_h);
+bool a3d_is_mouse_locked(const a3d* e);
 a3d_assets* a3d_get_assets(a3d* e);
 const a3d_assets* a3d_get_assets_const(const a3d* e);
+bool a3d_set_mouse_locked(a3d* e, bool locked);
 void a3d_wait_idle(a3d* e);

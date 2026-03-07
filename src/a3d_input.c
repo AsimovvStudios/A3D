@@ -69,22 +69,25 @@ void a3d_input_on_event(a3d_input* in, const SDL_Event* e)
 	}
 }
 
-bool a3d_key_down(const a3d_input* in, SDL_Scancode sc)
+bool a3d_key_down(const a3d_input* in, a3d_key key)
 {
+	SDL_Scancode sc = key;
 	if (!in || !a3d_input_valid_scancode(sc))
 		return false;
 	return in->keys_down[sc];
 }
 
-bool a3d_key_pressed(const a3d_input* in, SDL_Scancode sc)
+bool a3d_key_pressed(const a3d_input* in, a3d_key key)
 {
+	SDL_Scancode sc = key;
 	if (!in || !a3d_input_valid_scancode(sc))
 		return false;
 	return in->keys_pressed[sc];
 }
 
-bool a3d_key_released(const a3d_input* in, SDL_Scancode sc)
+bool a3d_key_released(const a3d_input* in, a3d_key key)
 {
+	SDL_Scancode sc = key;
 	if (!in || !a3d_input_valid_scancode(sc))
 		return false;
 	return in->keys_released[sc];
